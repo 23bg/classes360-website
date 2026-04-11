@@ -6,7 +6,7 @@ import { issueSessionUseCase } from "@/features/auth/services/issueSession";
 const SESSION_COOKIE = "session_token";
 
 export type SessionRole = "OWNER" | "EDITOR" | "VIEWER" | "MANAGER";
-export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
 
 export type SessionPayload = {
     userId: string;

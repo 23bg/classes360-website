@@ -7,7 +7,7 @@ export type AccessTokenPayload = {
     role: "OWNER" | "EDITOR" | "VIEWER" | "MANAGER";
     instituteId: string;
     isOnboarded: boolean;
-    subscriptionStatus: "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+    subscriptionStatus: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
 };
 
 export type RefreshTokenPayload = {

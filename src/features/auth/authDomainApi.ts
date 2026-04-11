@@ -51,7 +51,7 @@ const generateOtpCode = (): string => crypto.randomInt(0, 100_000).toString().pa
 
 const resolvePostLoginRedirect = (input: {
     isOnboarded: boolean;
-    subscriptionStatus: "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+    subscriptionStatus: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
 }): "/overview" | "/pricing" | "/onboarding" => {
     if (!input.isOnboarded) {
         return "/onboarding";

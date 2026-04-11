@@ -229,7 +229,7 @@ export const razorpayProvider: BillingProvider = {
             providerEventId: webhookEventId,
             subscriptionId: subscription.id,
             amount: 0,
-            currency: subscription.currency ?? "INR",
+            currency: "INR",
             status: nextStatus === "ACTIVE" ? "SUCCEEDED" : "FAILED",
             startDate: currentPeriodStart,
             endDate: currentPeriodEnd,

@@ -1,6 +1,6 @@
 export type SessionRole = "OWNER" | "EDITOR" | "VIEWER" | "MANAGER";
 
-export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
 
 export type AccessTokenClaims = {
     userId: string;

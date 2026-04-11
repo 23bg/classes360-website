@@ -84,6 +84,7 @@ export type BillingWebhookResult = {
     webhookEventId?: string | null;
     providerPaymentId?: string | null;
     providerSubscriptionId?: string | null;
+    providerPaymentLinkId?: string | null;
     transactionId?: string | null;
     subscriptionId?: string | null;
 };

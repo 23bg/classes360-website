@@ -3,7 +3,9 @@ import { billingRepository } from "@/features/billing/repositories/billing.repo"
 import { detectBillingRegion, getRegionLabel, resolveBillingProvider } from "@/features/billing/billingRouting";
 import { getBillingProvider } from "@/features/billing/providers";
 import { subscriptionTransactionRepository } from "@/features/billing/subscriptionTransactionDataApi";
+import { subscriptionRepository } from "@/features/subscription/repositories/subscription.repo";
 import { subscriptionService } from "@/features/subscription/services/subscription.service";
+import { assertRazorpayReady, razorpay } from "@/lib/billing/razorpay";
 import { AppError } from "@/lib/utils/error";
 import { whatsappIntegrationService } from "@/features/whatsapp/whatsappApi";
 import { instituteRepository } from "@/features/institute/instituteDataApi";
@@ -238,7 +240,6 @@ export const billingService = {
                 provider: input.provider,
                 providerPaymentId: verification.providerPaymentId ?? null,
                 providerSubscriptionId: verification.providerSubscriptionId ?? null,
-                subscriptionId: subscription.id,
                 amount: transactionAmount,
                 currency: transactionCurrency,
                 status: "VERIFIED",

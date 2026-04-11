@@ -202,7 +202,7 @@ export const stripeProvider: BillingProvider = {
 
             const updated = await subscriptionRepository.updateByInstituteId(instituteId, {
                 billingProvider: "STRIPE",
-                providerSubscriptionId: providerSubscriptionId ?? subscription?.providerSubscriptionId ?? null,
+                providerSubscriptionId: providerSubscriptionId ?? null,
                 providerPaymentId,
                 status: "ACTIVE",
                 currentPeriodStart,
@@ -210,7 +210,7 @@ export const stripeProvider: BillingProvider = {
                 lastChargedAt: new Date(),
                 autopayEnabled: true,
                 paymentMethodAddedAt: new Date(),
-                currency: object?.metadata?.currency ?? subscription?.currency ?? "USD",
+                currency: object?.metadata?.currency ?? "USD",
             } as any);
 
             const transaction = await subscriptionTransactionRepository.create({
@@ -221,7 +221,7 @@ export const stripeProvider: BillingProvider = {
                 providerEventId: eventId,
                 subscriptionId: updated.id,
                 amount: 0,
-                currency: updated.currency ?? "USD",
+                currency: object?.metadata?.currency ?? "USD",
                 status: "SUCCEEDED",
                 startDate: currentPeriodStart,
                 endDate: currentPeriodEnd,
@@ -248,7 +248,7 @@ export const stripeProvider: BillingProvider = {
 
             await subscriptionRepository.updateByInstituteId(instituteId, {
                 billingProvider: "STRIPE",
-                providerSubscriptionId: providerSubscriptionId ?? subscription?.providerSubscriptionId ?? null,
+                providerSubscriptionId: providerSubscriptionId ?? null,
                 providerPaymentId,
                 status: "PAST_DUE",
                 autopayEnabled: false,

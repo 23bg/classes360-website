@@ -76,7 +76,6 @@ export const subscriptionRepository = {
             status?: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
             currentPeriodStart?: Date | null;
             currentPeriodEnd?: Date | null;
-            currentPeriodStart?: Date | null;
             trialEndsAt?: Date | null;
             billingProvider?: "RAZORPAY" | "STRIPE" | null;
             providerSubscriptionId?: string | null;
@@ -88,10 +87,6 @@ export const subscriptionRepository = {
             lastChargedAt?: Date | null;
             autopayEnabled?: boolean;
             paymentMethodAddedAt?: Date | null;
-            billingProvider?: "RAZORPAY" | "STRIPE" | null;
-            providerSubscriptionId?: string | null;
-            providerPaymentId?: string | null;
-            currency?: string;
         }
     ) =>
         prisma.subscription.upsert({
@@ -157,12 +152,17 @@ export const subscriptionRepository = {
     updateByRazorpaySubId: async (
         razorpaySubId: string,
         payload: {
-            status?: "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+            status?: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
             currentPeriodEnd?: Date | null;
+            currentPeriodStart?: Date | null;
             trialEndsAt?: Date | null;
             lastChargedAt?: Date | null;
             autopayEnabled?: boolean;
             paymentMethodAddedAt?: Date | null;
+            billingProvider?: "RAZORPAY" | "STRIPE" | null;
+            providerSubscriptionId?: string | null;
+            providerPaymentId?: string | null;
+            currency?: string;
         }
     ) =>
         prisma.subscription.updateMany({
