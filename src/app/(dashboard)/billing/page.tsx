@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Script from "next/script";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { ArrowRight, BadgeCheck, CreditCard, Globe2, Loader2, ShieldCheck, Sparkles, Wallet } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, CreditCard } from "lucide-react";
 import { getPlanPricing, PLAN_CONFIG, PlanType, PricingVersion } from "@/config/plans";
 import type { BillingInterval } from "@/features/subscription/subscriptionApi";
-import Script from "next/script";
 import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 import {
     confirmBillingSubscription,
@@ -18,68 +19,98 @@ import {
     retryBillingInvoice,
 } from "@/features/dashboard/dashboardSlice";
 
-type RazorpayCheckoutResponse = {
-    razorpay_payment_id: string;
-    razorpay_subscription_id: string;
-    razorpay_signature: string;
-};
+type CheckoutProvider = "RAZORPAY" | "STRIPE";
 
-type RazorpayCheckoutOptions = {
-    key: string;
-    subscription_id: string;
-    name: string;
-    description: string;
-    handler: (response: RazorpayCheckoutResponse) => void | Promise<void>;
-    modal?: {
-        ondismiss?: () => void;
-    };
-};
-
-type RazorpayInstance = {
-    open: () => void;
-};
-
-type RazorpayConstructor = new (options: RazorpayCheckoutOptions) => RazorpayInstance;
-
-type InvoiceHistoryItem = {
-    id: string;
-    month: number;
-    year: number;
-    periodStart: string;
-    periodEnd: string;
-    planCharge: number;
-    usageCharge: number;
+type BillingCheckoutSession = {
+    provider: CheckoutProvider;
+    region: "IN" | "GLOBAL" | "UNKNOWN";
+    checkoutMode: "subscription" | "payment";
+    planType: string;
+    interval: string;
+    currency: string;
+    amount: number;
+    taxes: number;
     totalAmount: number;
-    status: "PENDING" | "ISSUED" | "PAID" | "OVERDUE" | "VOID";
-    dueDate?: string | null;
-    issuedAt?: string | null;
-    paidAt?: string | null;
-    paymentLinkUrl?: string | null;
-    downloadUrl?: string | null;
+    checkoutSessionId?: string | null;
+    providerSubscriptionId?: string | null;
+    providerPaymentId?: string | null;
+    providerPaymentLinkId?: string | null;
+    checkoutUrl?: string | null;
+    clientSecret?: string | null;
+    publishableKey?: string | null;
+    paymentMethods: Array<"CARD" | "UPI" | "NETBANKING" | "APPLE_PAY" | "GOOGLE_PAY" | "PAYPAL">;
+    redirectRequired: boolean;
+    regionLabel: string;
+};
+
+const INTERNATIONAL_PRICING_USD: Record<PlanType, { monthly: number; yearly: number }> = {
+    STARTER: { monthly: 12, yearly: 120 },
+    TEAM: { monthly: 24, yearly: 240 },
+    GROWTH: { monthly: 42, yearly: 420 },
+    SCALE: { monthly: 60, yearly: 600 },
+};
+
+const PROVIDER_METHODS: Record<CheckoutProvider, Array<{ label: string; description: string }>> = {
+    RAZORPAY: [
+        { label: "Card", description: "Visa, Mastercard, RuPay" },
+        { label: "UPI", description: "Google Pay, PhonePe, Paytm" },
+        { label: "Netbanking", description: "All major Indian banks" },
+    ],
+    STRIPE: [
+        { label: "Card", description: "Visa, Mastercard, AmEx" },
+        { label: "Apple Pay", description: "One-tap on supported devices" },
+        { label: "Google Pay", description: "Fast wallet checkout" },
+    ],
 };
 
 const STATUS_COLORS: Record<string, string> = {
     TRIAL: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    PAST_DUE: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
     INACTIVE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     CANCELLED: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
+const getCurrencySymbol = (currency: string) => (currency === "USD" ? "$" : "₹");
+
+const formatMoney = (amount: number, currency: string) =>
+    currency === "USD"
+        ? new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount)
+        : new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+
+const getQuotedPrice = (planType: PlanType, interval: BillingInterval, currency: string, pricingVersion: PricingVersion) => {
+    if (currency === "USD") {
+        return INTERNATIONAL_PRICING_USD[planType][interval === "YEARLY" ? "yearly" : "monthly"];
+    }
+
+    const pricing = getPlanPricing(planType, { version: pricingVersion });
+    return interval === "YEARLY" ? pricing.yearly : pricing.monthly;
+};
+
 export default function BillingPage() {
     const dispatch = useAppDispatch();
+    const searchParams = useSearchParams();
     const billingData = useAppSelector((state) => state.dashboard.billing.data);
     const loading = useAppSelector((state) => state.dashboard.billing.loading);
     const creating = useAppSelector((state) => state.dashboard.billing.subscription.loading);
     const generatingInvoice = useAppSelector((state) => state.dashboard.billing.invoice.loading);
     const retryingInvoice = useAppSelector((state) => state.dashboard.billing.retry.loading);
+    const confirming = useAppSelector((state) => state.dashboard.billing.confirm.loading);
     const summary = billingData?.summary ?? null;
     const usage = billingData?.usage ?? null;
     const invoices = billingData?.invoices ?? [];
     const policy = billingData?.policy ?? null;
-    const sender = billingData?.sender ?? null;
+    const checkoutContext = billingData?.checkout ?? null;
+    const billingContact = billingData?.billingContact ?? null;
+    const institute = billingData?.institute ?? null;
     const [selectedPlan, setSelectedPlan] = useState<PlanType>("STARTER");
     const [selectedInterval, setSelectedInterval] = useState<BillingInterval>("MONTHLY");
+    const [selectedProvider, setSelectedProvider] = useState<CheckoutProvider | null>(null);
+    const [checkoutState, setCheckoutState] = useState<{ status: "idle" | "opening" | "pending" | "success" | "error"; message?: string }>({
+        status: "idle",
+    });
     const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
+    const [manualRecoveryHandled, setManualRecoveryHandled] = useState(false);
 
     useEffect(() => {
         void dispatch(fetchBillingDashboard());
@@ -94,315 +125,519 @@ export default function BillingPage() {
         }
     }, [summary?.billingInterval, summary?.planType]);
 
-    const usageWarningThreshold = usage ? Math.floor(usage.alertsIncluded * 0.8) : null;
-    const isUsageWarning = usage && usage.alertsIncluded > 0 && usage.alertsUsed >= (usageWarningThreshold ?? 0);
+    useEffect(() => {
+        if (checkoutContext?.recommendedProvider) {
+            setSelectedProvider(checkoutContext.recommendedProvider);
+        }
+    }, [checkoutContext?.recommendedProvider]);
+
     const selectedPricingVersion: PricingVersion = (summary?.pricingVersion as PricingVersion | undefined) ?? "CURRENT";
-    const getDisplayPlanPrice = (planType: PlanType) => getPlanPricing(planType, { version: selectedPricingVersion }).monthly;
+    const quoteCurrency = checkoutContext?.currency ?? (selectedProvider === "STRIPE" ? "USD" : "INR");
+    const quotedPrice = useMemo(
+        () => getQuotedPrice(selectedPlan, selectedInterval, quoteCurrency, selectedPricingVersion),
+        [quoteCurrency, selectedInterval, selectedPlan, selectedPricingVersion]
+    );
+    const quoteTax = useMemo(() => (checkoutContext?.taxRate ?? 0) * quotedPrice, [checkoutContext?.taxRate, quotedPrice]);
+    const quoteTotal = quotedPrice + quoteTax;
+    const billingMethods = PROVIDER_METHODS[(selectedProvider ?? checkoutContext?.provider ?? "RAZORPAY") as CheckoutProvider];
+    const isBusy = creating || confirming || retryingInvoice || checkoutState.status === "opening";
 
-    const createSubscription = async (planType: PlanType) => {
-        try {
-            const payload = await dispatch(createBillingSubscription({
-                planType,
-                interval: selectedInterval,
-            })).unwrap();
+    const openCheckout = async (session: BillingCheckoutSession) => {
+        setCheckoutState({ status: "opening", message: "Launching secure checkout..." });
 
-            if (!payload?.subscriptionId || !payload?.key) {
-                throw new Error("Missing checkout payload");
+        if (session.provider === "STRIPE") {
+            if (session.checkoutUrl) {
+                window.location.assign(session.checkoutUrl);
+                return;
             }
 
-            const RazorpayCtor = (window as unknown as { Razorpay?: RazorpayConstructor }).Razorpay;
-            if (!RazorpayCtor) {
-                throw new Error("Razorpay SDK not loaded");
-            }
+            throw new Error("Stripe checkout URL missing");
+        }
 
-            const rzp = new RazorpayCtor({
-                key: payload.key,
-                subscription_id: payload.subscriptionId,
-                name: "Classes360",
-                description: "Admission and Student Management Platform Subscription",
-                handler: async (checkoutResponse) => {
-                    await dispatch(confirmBillingSubscription(checkoutResponse as unknown as Record<string, unknown>)).unwrap();
-                    toast.success(`${planType} plan activated`);
+        const RazorpayCtor = (window as unknown as { Razorpay?: new (options: any) => { open: () => void } }).Razorpay;
+        if (!RazorpayCtor) {
+            throw new Error("Razorpay SDK not loaded");
+        }
+
+        const checkout = new RazorpayCtor({
+            key: session.publishableKey,
+            subscription_id: session.providerSubscriptionId,
+            name: institute?.name ?? "Classes360",
+            description: `${selectedPlan} ${selectedInterval.toLowerCase()} subscription`,
+            handler: async (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => {
+                setCheckoutState({ status: "pending", message: "Verifying payment with provider..." });
+                try {
+                    const result = await dispatch(
+                        confirmBillingSubscription({
+                            provider: "RAZORPAY",
+                            ...response,
+                        })
+                    ).unwrap();
+
+                    if (result?.verified === false) {
+                        setCheckoutState({ status: "pending", message: "Payment received. Waiting for confirmation..." });
+                        return;
+                    }
+
+                    setCheckoutState({ status: "success", message: "Payment verified and subscription activated." });
+                    toast.success("Subscription activated");
                     await dispatch(fetchBillingDashboard()).unwrap();
+                } catch (error: any) {
+                    setCheckoutState({ status: "error", message: error?.data?.error?.message ?? error?.message ?? "Verification failed" });
+                    toast.error(error?.data?.error?.message ?? "Unable to verify payment");
+                }
+            },
+            modal: {
+                ondismiss: () => {
+                    setCheckoutState({ status: "idle", message: "Checkout closed. You can retry payment any time." });
+                    toast.message("Checkout closed");
                 },
-                modal: {
-                    ondismiss: () => {
-                        toast.message("Checkout closed. Complete payment setup to activate trial.");
-                    },
-                },
-            });
+            },
+        });
 
-            rzp.open();
+        checkout.open();
+    };
+
+    const startCheckout = async (payload: { planType: PlanType; interval: BillingInterval; provider?: CheckoutProvider | null; invoiceId?: string | null }) => {
+        try {
+            setCheckoutState({ status: "opening", message: "Preparing checkout session..." });
+            const session = payload.invoiceId
+                ? await dispatch(retryBillingInvoice(payload.invoiceId)).unwrap()
+                : await dispatch(
+                    createBillingSubscription({
+                        planType: payload.planType,
+                        interval: payload.interval,
+                        provider: payload.provider ?? undefined,
+                    })
+                ).unwrap();
+
+            if (!session?.provider) {
+                throw new Error("Missing checkout session");
+            }
+
+            await openCheckout(session as BillingCheckoutSession);
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? error?.message ?? "Network error");
+            setCheckoutState({ status: "error", message: error?.data?.error?.message ?? error?.message ?? "Unable to start checkout" });
+            toast.error(error?.data?.error?.message ?? error?.message ?? "Unable to start checkout");
         }
     };
 
-    const generateInvoice = async () => {
+    const retryStripeConfirmation = async (sessionId?: string | null) => {
+        if (!sessionId) {
+            return;
+        }
+
+        setCheckoutState({ status: "pending", message: "Checking payment status..." });
         try {
-            await dispatch(generateBillingInvoice()).unwrap();
-            toast.success("Invoice generated for last closed month");
+            const result = await dispatch(
+                confirmBillingSubscription({
+                    provider: "STRIPE",
+                    checkout_session_id: sessionId,
+                })
+            ).unwrap();
+
+            if (result?.verified) {
+                setCheckoutState({ status: "success", message: "Payment verified and subscription activated." });
+                toast.success("Payment confirmed");
+                await dispatch(fetchBillingDashboard()).unwrap();
+                return;
+            }
+
+            setCheckoutState({ status: "pending", message: "Payment is still processing. We will refresh once the webhook lands." });
             await dispatch(fetchBillingDashboard()).unwrap();
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Unable to generate invoice");
+            setCheckoutState({ status: "error", message: error?.data?.error?.message ?? error?.message ?? "Unable to confirm payment" });
+            toast.error(error?.data?.error?.message ?? "Unable to confirm payment");
         }
     };
 
-    const retryInvoice = async (invoiceId: string) => {
-        try {
-            setRetryingInvoiceId(invoiceId);
-            await dispatch(retryBillingInvoice(invoiceId)).unwrap();
-            toast.success("Invoice retry scheduled");
-            await dispatch(fetchBillingDashboard()).unwrap();
-        } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Unable to retry invoice");
-        } finally {
-            setRetryingInvoiceId(null);
+    useEffect(() => {
+        const checkoutStatus = searchParams.get("checkout");
+        const sessionId = searchParams.get("session_id");
+
+        if (checkoutStatus === "cancelled") {
+            toast.message("Checkout cancelled. You can continue from the billing page.");
         }
-    };
+
+        if (checkoutStatus === "success" && sessionId && !manualRecoveryHandled) {
+            setManualRecoveryHandled(true);
+            void retryStripeConfirmation(sessionId);
+        }
+    }, [manualRecoveryHandled, searchParams]);
+
+    const methodLabels = billingMethods.map((method) => method.label).join(" · ");
+    const orderPlanPrice = selectedProvider === "STRIPE"
+        ? INTERNATIONAL_PRICING_USD[selectedPlan][selectedInterval === "YEARLY" ? "yearly" : "monthly"]
+        : getPlanPricing(selectedPlan, { version: selectedPricingVersion })[selectedInterval === "YEARLY" ? "yearly" : "monthly"];
+    const orderTaxAmount = orderPlanPrice * (checkoutContext?.taxRate ?? 0);
+    const orderTotal = orderPlanPrice + orderTaxAmount;
 
     if (loading) {
         return (
-            <main className="p-6 flex items-center justify-center min-h-[50vh]">
+            <main className="flex min-h-[50vh] items-center justify-center p-6">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </main>
         );
     }
 
     return (
-        <main className="p-6 max-w-2xl">
-            <Script
-                id="razorpay-checkout-js"
-                src="https://checkout.razorpay.com/v1/checkout.js"
-                strategy="afterInteractive"
-            />
-            <h1 className=" text-2xl font-semibold">Billing</h1>
-            <p className="mt-1 text-muted-foreground">Manage your subscription and billing.</p>
+        <main className="mx-auto max-w-7xl space-y-6 p-6">
+            <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
+
+            <section className="rounded-3xl border bg-linear-to-r from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-xl">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="max-w-2xl space-y-3">
+                        <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/20">
+                            Secure billing
+                        </Badge>
+                        <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Billing</h1>
+                        <p className="max-w-xl text-sm text-white/75 md:text-base">
+                            A provider-aware checkout for India and international institutes, with real verification, recovery, and subscription tracking.
+                        </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3 lg:w-md">
+                        <Button variant="secondary" onClick={() => void generateBillingInvoice()} disabled={generatingInvoice || isBusy}>
+                            {generatingInvoice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Generate invoice
+                        </Button>
+                        <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10" asChild>
+                            <a href="#invoice-history">Invoice history</a>
+                        </Button>
+                        <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10" asChild>
+                            <a href="#checkout">Checkout</a>
+                        </Button>
+                    </div>
+                </div>
+            </section>
 
             {summary?.status === "INACTIVE" ? (
-                <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-                    Trial has expired. Choose a plan below to continue full access.
+                <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                    Trial has expired. Select a plan to restore access.
                 </div>
             ) : null}
 
-            {policy && !policy.alertsEnabled ? (
-                <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                    WhatsApp alerts are currently disabled due to overdue invoice payment.
+            {checkoutState.status === "success" ? (
+                <div className="rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-200">
+                    {checkoutState.message ?? "Payment verified."}
                 </div>
             ) : null}
 
-            {summary?.trialPaymentReminder ? (
-                <div className="mt-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-                    Trial ends in {summary.trialDaysRemaining ?? 0} day(s). Add payment method now to keep account active on expiry.
+            {checkoutState.status === "pending" ? (
+                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    {checkoutState.message ?? "Payment is processing."}
+                    <Button variant="link" className="ml-2 p-0 text-amber-900 dark:text-amber-100" onClick={() => void dispatch(fetchBillingDashboard())}>
+                        Refresh status
+                    </Button>
                 </div>
             ) : null}
 
-            {policy?.notifyPaymentMethodUpdate ? (
-                <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                    Automatic payment retries have failed. Update payment method and retry invoice payment.
+            {checkoutState.status === "error" ? (
+                <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                    {checkoutState.message ?? "Checkout failed."}
+                    <Button variant="link" className="ml-2 p-0 text-red-800 dark:text-red-100" onClick={() => setCheckoutState({ status: "idle" })}>
+                        Dismiss
+                    </Button>
                 </div>
             ) : null}
 
-            <Card className="mt-6">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
+            <section className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="inline-flex rounded-full border bg-background p-1 shadow-sm">
+                        {(Object.keys(PLAN_CONFIG) as PlanType[]).map((planType) => (
+                            <button
+                                key={planType}
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => setSelectedPlan(planType)}
+                                className={`rounded-full px-4 py-2 text-sm font-medium transition ${selectedPlan === planType ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                {PLAN_CONFIG[planType].name}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="inline-flex rounded-full border bg-background p-1 shadow-sm">
+                        {(["MONTHLY", "YEARLY"] as BillingInterval[]).map((interval) => (
+                            <button
+                                key={interval}
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => setSelectedInterval(interval)}
+                                className={`rounded-full px-4 py-2 text-sm font-medium transition ${selectedInterval === interval ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                {interval === "YEARLY" ? "Yearly" : "Monthly"}
+                            </button>
+                        ))}
+                    </div>
+
+                    <Badge variant="outline" className="gap-1.5">
+                        <Globe2 className="h-3.5 w-3.5" />
+                        {checkoutContext?.regionLabel ?? "Region auto-detected"}
+                    </Badge>
+                </div>
+
+                {checkoutContext?.region === "UNKNOWN" ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                        <span className="font-medium text-foreground">Auto routing failed:</span>
+                        <span className="text-muted-foreground">choose a provider manually.</span>
+                        {(["RAZORPAY", "STRIPE"] as CheckoutProvider[]).map((provider) => (
+                            <Button
+                                key={provider}
+                                variant={selectedProvider === provider ? "default" : "outline"}
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => setSelectedProvider(provider)}
+                            >
+                                {provider === "RAZORPAY" ? "Razorpay" : "Stripe"}
+                            </Button>
+                        ))}
+                    </div>
+                ) : null}
+            </section>
+
+            <Card id="checkout" className="overflow-hidden border-slate-200/80 shadow-lg">
+                <CardHeader className="border-b bg-muted/30">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                         <div>
-                            <CardTitle className="flex items-center gap-2">
-                                <CreditCard className="h-5 w-5" /> Subscription Plan
-                            </CardTitle>
-                            <CardDescription className="mt-1">
-                                {summary?.planName ?? "Starter System"} — ₹{summary?.planAmount ?? PLAN_CONFIG.STARTER.priceMonthly}/month
-                                {summary?.planAmountYearly ? ` · ₹${summary.planAmountYearly}/year` : ""}
+                            <CardTitle>Checkout</CardTitle>
+                            <CardDescription>
+                                {selectedProvider === "STRIPE" ? "Stripe checkout for international cards and wallets." : "Razorpay checkout for India with UPI and card support."}
                             </CardDescription>
                         </div>
-                        <Badge variant="secondary" className={STATUS_COLORS[summary?.status ?? "TRIAL"] ?? ""}>
-                            {summary?.status ?? "TRIAL"}
+                        <Badge variant="secondary" className="w-fit">
+                            {selectedProvider === "STRIPE" ? "Stripe" : "Razorpay"}
                         </Badge>
                     </div>
                 </CardHeader>
+
+                <CardContent className="grid gap-6 p-6 lg:grid-cols-[1fr_1.1fr_1fr]">
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+                            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <BadgeCheck className="h-4 w-4" /> Billing info
+                            </div>
+                            <div className="mt-4 space-y-3 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Name</span>
+                                    <span className="font-medium text-right">{billingContact?.name ?? institute?.name ?? "Billing contact"}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Email</span>
+                                    <span className="font-medium text-right">{billingContact?.email ?? "From your workspace session"}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Institute</span>
+                                    <span className="font-medium text-right">{institute?.name ?? "-"}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Country</span>
+                                    <span className="font-medium text-right">{institute?.country ?? checkoutContext?.country ?? "Not set"}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Currency</span>
+                                    <span className="font-medium text-right">{quoteCurrency}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+                            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <ShieldCheck className="h-4 w-4" /> Security
+                            </div>
+                            <p className="mt-3 text-sm text-muted-foreground">
+                                Frontend actions are locked during checkout, payment verification happens on the backend, and every webhook is recorded for replay-safe processing.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+                            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Wallet className="h-4 w-4" /> Payment methods
+                            </div>
+                            <div className="mt-4 grid gap-3">
+                                {billingMethods.map((method) => (
+                                    <div key={method.label} className="rounded-xl border px-4 py-3 transition hover:border-primary/40 hover:bg-primary/5">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="font-medium">{method.label}</span>
+                                            <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
+                                                {selectedProvider === "STRIPE" ? "Stripe" : "Razorpay"}
+                                            </Badge>
+                                        </div>
+                                        <p className="mt-1 text-sm text-muted-foreground">{method.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+                            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Sparkles className="h-4 w-4" /> Recovery
+                            </div>
+                            <p className="mt-3 text-sm text-muted-foreground">
+                                If confirmation fails after a successful payment, the checkout can be re-checked from the return screen or retried from the invoice history below.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border bg-slate-950 p-5 text-white shadow-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm text-white/70">Order summary</p>
+                                    <h3 className="mt-1 text-xl font-semibold">{PLAN_CONFIG[selectedPlan].name}</h3>
+                                </div>
+                                <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/15">
+                                    {checkoutContext?.provider ?? selectedProvider ?? "Razorpay"}
+                                </Badge>
+                            </div>
+
+                            <div className="mt-5 space-y-3 text-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-white/65">Billing cycle</span>
+                                    <span className="font-medium">{selectedInterval === "YEARLY" ? "Yearly" : "Monthly"}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-white/65">Plan price</span>
+                                    <span className="font-medium">{formatMoney(orderPlanPrice, quoteCurrency)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-white/65">Taxes</span>
+                                    <span className="font-medium">{formatMoney(orderTaxAmount, quoteCurrency)}</span>
+                                </div>
+                                <div className="flex items-center justify-between border-t border-white/10 pt-3 text-base">
+                                    <span className="font-medium">Total</span>
+                                    <span className="font-semibold">{formatMoney(orderTotal, quoteCurrency)}</span>
+                                </div>
+                            </div>
+
+                            <Button
+                                className="mt-6 w-full bg-white text-slate-950 hover:bg-white/90"
+                                size="lg"
+                                disabled={isBusy}
+                                onClick={() => void startCheckout({ planType: selectedPlan, interval: selectedInterval, provider: selectedProvider ?? checkoutContext?.provider ?? null })}
+                            >
+                                {creating || checkoutState.status === "opening" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                                {selectedProvider === "STRIPE" ? "Continue with Stripe" : "Pay with Razorpay"}
+                            </Button>
+
+                            <p className="mt-3 text-xs text-white/60">
+                                {methodLabels}. Your subscription activates only after server-side verification.
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-muted/30 shadow-none">
+                <CardHeader>
+                    <CardTitle>Plan controls</CardTitle>
+                    <CardDescription>Choose the subscription tier that matches your team size and billing rhythm.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-4">
+                    {(Object.keys(PLAN_CONFIG) as PlanType[]).map((planType) => (
+                        <Button
+                            key={planType}
+                            variant={selectedPlan === planType ? "default" : "outline"}
+                            disabled={isBusy}
+                            onClick={() => setSelectedPlan(planType)}
+                            className="justify-between"
+                        >
+                            <span>{PLAN_CONFIG[planType].name}</span>
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    ))}
+                </CardContent>
+            </Card>
+
+            {summary?.status === "ACTIVE" ? (
+                <Card className="border-green-200 bg-green-50 shadow-none dark:border-green-900 dark:bg-green-950/30">
+                    <CardHeader>
+                        <CardTitle className="text-green-900 dark:text-green-100">Subscription active</CardTitle>
+                        <CardDescription className="text-green-800/80 dark:text-green-100/70">
+                            Your account is verified and ready. Future renewals will continue to flow through the provider webhook ledger.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            ) : null}
+
+            <Card id="invoice-history" className="shadow-sm">
+                <CardHeader>
+                    <CardTitle>Invoice history</CardTitle>
+                    <CardDescription>Monthly invoice trail with retry actions that open a real payment flow.</CardDescription>
+                </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Status</span>
-                        <span className="font-medium">{summary?.status ?? "TRIAL"}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Billing cycle</span>
-                        <span className="font-medium">{summary?.billingInterval ?? "MONTHLY"} (1st - last day)</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Autopay status</span>
-                        <span className="font-medium">{summary?.autopayEnabled ? "Enabled" : "Not configured"}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Users</span>
-                        <span className="font-medium">
-                            {summary?.usersUsed ?? 0}/{summary?.userLimit === null ? "Unlimited" : (summary?.userLimit ?? 1)}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Next billing date</span>
-                        <span className="font-medium">
-                            {summary?.nextBillingDate ? new Date(summary.nextBillingDate).toLocaleDateString() : "Not set"}
-                        </span>
-                    </div>
-                    {summary?.razorpaySubId ? (
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Razorpay ID</span>
-                            <span className="font-mono text-xs">{summary.razorpaySubId}</span>
-                        </div>
-                    ) : null}
-
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Last payment</span>
-                        <span className="font-medium">
-                            {summary?.lastPaymentDate && summary?.lastPaymentAmount
-                                ? `${new Date(summary.lastPaymentDate).toLocaleDateString()} • ₹${summary.lastPaymentAmount}`
-                                : "No payment history yet"}
-                        </span>
-                    </div>
-
-                    <div className="grid gap-2 pt-2 sm:grid-cols-3">
-                        <Button
-                            variant={selectedInterval === "MONTHLY" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => setSelectedInterval("MONTHLY")}
-                        >
-                            Monthly
-                        </Button>
-                        <Button
-                            variant={selectedInterval === "YEARLY" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => setSelectedInterval("YEARLY")}
-                        >
-                            Yearly (2 months free)
-                        </Button>
-                        <Button variant="outline" disabled={generatingInvoice} onClick={() => void generateInvoice()}>
-                            {generatingInvoice ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : "Generate Last Invoice"}
-                        </Button>
-                    </div>
-
-                    <div className="grid gap-2 pt-2 sm:grid-cols-4">
-                        <Button
-                            variant={selectedPlan === "STARTER" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => {
-                                setSelectedPlan("STARTER");
-                                void createSubscription("STARTER");
-                            }}
-                        >
-                            {creating && selectedPlan === "STARTER" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : `Choose Starter (₹${getDisplayPlanPrice("STARTER")})`}
-                        </Button>
-                        <Button
-                            variant={selectedPlan === "TEAM" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => {
-                                setSelectedPlan("TEAM");
-                                void createSubscription("TEAM");
-                            }}
-                        >
-                            {creating && selectedPlan === "TEAM" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : `Choose Team (₹${getDisplayPlanPrice("TEAM")})`}
-                        </Button>
-                        <Button
-                            variant={selectedPlan === "GROWTH" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => {
-                                setSelectedPlan("GROWTH");
-                                void createSubscription("GROWTH");
-                            }}
-                        >
-                            {creating && selectedPlan === "GROWTH" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : `Upgrade Growth (₹${getDisplayPlanPrice("GROWTH")})`}
-                        </Button>
-                        <Button
-                            variant={selectedPlan === "SCALE" ? "default" : "outline"}
-                            disabled={creating}
-                            onClick={() => {
-                                setSelectedPlan("SCALE");
-                                void createSubscription("SCALE");
-                            }}
-                        >
-                            {creating && selectedPlan === "SCALE" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : `Upgrade Scale (₹${getDisplayPlanPrice("SCALE")})`}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mt-6">
-                <CardHeader>
-                    <CardTitle>Usage Summary</CardTitle>
-                    <CardDescription>Current month WhatsApp activity across system alerts and connected sender mode.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                    {isUsageWarning ? (
-                        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                            High WhatsApp activity detected: {usage?.alertsUsed ?? 0} alerts sent this month (volume benchmark: {usageWarningThreshold ?? 0}).
-                        </div>
-                    ) : null}
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Alerts sent</span>
-                        <span className="font-medium">{usage?.alertsUsed ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Sender mode</span>
-                        <span className="font-medium">
-                            {sender?.mode === "INSTITUTE_CUSTOM"
-                                ? `Institute WhatsApp Number${sender?.connectedNumber ? ` (${sender.connectedNumber})` : ""}`
-                                : "Classes360 Shared Number"}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">WhatsApp billing</span>
-                        <span className="font-medium">Meta charges apply directly to connected institute numbers</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">In plan</span>
-                        <span className="font-medium">Classes360 system alerts for institute staff</span>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mt-6">
-                <CardHeader>
-                    <CardTitle>Invoice History</CardTitle>
-                    <CardDescription>One monthly invoice focused on your subscription plan.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
                     {invoices.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No invoices generated yet.</p>
                     ) : (
-                        invoices.map((invoice: InvoiceHistoryItem) => (
-                            <div key={invoice.id} className="rounded border p-3">
+                        invoices.map((invoice: {
+                            id: string;
+                            month: number;
+                            year: number;
+                            periodStart: string;
+                            periodEnd: string;
+                            planCharge: number;
+                            usageCharge: number;
+                            totalAmount: number;
+                            status: "PENDING" | "ISSUED" | "PAID" | "OVERDUE" | "VOID";
+                            dueDate?: string | null;
+                            issuedAt?: string | null;
+                            paidAt?: string | null;
+                            paymentLinkUrl?: string | null;
+                            downloadUrl?: string | null;
+                        }) => (
+                            <div key={invoice.id} className="rounded-2xl border bg-background p-4 shadow-sm">
                                 <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-medium">
-                                        {new Date(invoice.periodStart).toLocaleDateString()} - {new Date(invoice.periodEnd).toLocaleDateString()}
-                                    </p>
+                                    <div>
+                                        <p className="text-sm font-medium">
+                                            {new Date(invoice.periodStart).toLocaleDateString()} - {new Date(invoice.periodEnd).toLocaleDateString()}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{invoice.status}</p>
+                                    </div>
                                     <Badge variant={invoice.status === "PAID" ? "default" : invoice.status === "OVERDUE" ? "destructive" : "secondary"}>
                                         {invoice.status}
                                     </Badge>
                                 </div>
-                                <div className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-3">
-                                    <p>Plan: ₹{invoice.planCharge.toFixed(2)}</p>
-                                    <p>Usage: ₹{invoice.usageCharge.toFixed(2)}</p>
-                                    <p className="font-semibold text-foreground">Total: ₹{invoice.totalAmount.toFixed(2)}</p>
+
+                                <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
+                                    <p>Plan: {formatMoney(invoice.planCharge, quoteCurrency)}</p>
+                                    <p>Usage: {formatMoney(invoice.usageCharge, quoteCurrency)}</p>
+                                    <p className="font-semibold text-foreground">Total: {formatMoney(invoice.totalAmount, quoteCurrency)}</p>
                                 </div>
-                                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+
+                                <div className="mt-4 flex flex-wrap gap-2">
                                     {invoice.paymentLinkUrl ? (
                                         <Button asChild variant="outline" size="sm">
-                                            <a href={invoice.paymentLinkUrl} target="_blank" rel="noreferrer">Pay Invoice</a>
+                                            <a href={invoice.paymentLinkUrl} target="_blank" rel="noreferrer">
+                                                Open payment link
+                                            </a>
                                         </Button>
                                     ) : null}
+
                                     {invoice.status !== "PAID" ? (
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             disabled={retryingInvoice && retryingInvoiceId === invoice.id}
-                                            onClick={() => void retryInvoice(invoice.id)}
+                                            onClick={() => {
+                                                setRetryingInvoiceId(invoice.id);
+                                                void startCheckout({
+                                                    planType: selectedPlan,
+                                                    interval: selectedInterval,
+                                                    provider: selectedProvider ?? checkoutContext?.provider ?? null,
+                                                    invoiceId: invoice.id,
+                                                }).finally(() => setRetryingInvoiceId(null));
+                                            }}
                                         >
-                                            {retryingInvoice && retryingInvoiceId === invoice.id ? "Retrying..." : "Retry Payment"}
+                                            {retryingInvoice && retryingInvoiceId === invoice.id ? "Preparing..." : "Retry payment"}
                                         </Button>
                                     ) : null}
+
                                     {invoice.downloadUrl ? (
                                         <Button asChild variant="outline" size="sm">
-                                            <a href={invoice.downloadUrl} target="_blank" rel="noreferrer">Download Invoice</a>
+                                            <a href={invoice.downloadUrl} target="_blank" rel="noreferrer">
+                                                Download invoice
+                                            </a>
                                         </Button>
                                     ) : null}
                                 </div>
@@ -411,7 +646,22 @@ export default function BillingPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {checkoutState.status === "pending" && searchParams.get("session_id") ? (
+                <Card className="border-amber-200 bg-amber-50 shadow-none dark:border-amber-900 dark:bg-amber-950/30">
+                    <CardHeader>
+                        <CardTitle className="text-amber-900 dark:text-amber-100">Waiting for provider confirmation</CardTitle>
+                        <CardDescription className="text-amber-800/80 dark:text-amber-100/70">
+                            The payment was completed, but the backend confirmation is still catching up. You can refresh the billing dashboard or wait for the webhook.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button variant="outline" onClick={() => void dispatch(fetchBillingDashboard())}>
+                            Refresh dashboard
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : null}
         </main>
     );
 }
-

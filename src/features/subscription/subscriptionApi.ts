@@ -1,12 +1,13 @@
 import { AppError } from "@/lib/utils/error";
-import { subscriptionRepository } from "@/features/subscription/subscriptionDataApi";
+import { subscriptionRepository } from "@/features/subscription/repositories/subscription.repo";
 import { assertRazorpayReady, razorpay, verifyRazorpayCheckoutSignature } from "@/lib/billing/razorpay";
 import { env } from "@/lib/config/env";
 import { DEFAULT_PLAN_TYPE, getPlanPricing, isGrandfatheredSubscription, isPlanType, PLAN_CONFIG, PlanType, PricingVersion } from "@/config/plans";
-import { userRepository } from "@/features/auth/userDataApi";
+import { userRepository } from "@/features/auth/repositories/user.repo";
 import { eventDispatcherService } from "@/lib/notifications/event-dispatcher.service";
+import { subscriptionTransactionRepository } from "@/features/billing/subscriptionTransactionDataApi";
 
-export type SubscriptionState = "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+export type SubscriptionState = "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
 type SubscriptionRecord = {
     instituteId: string;
     status: SubscriptionState;
@@ -14,7 +15,12 @@ type SubscriptionRecord = {
     planType?: string | null;
     userLimit?: number | null;
     razorpaySubId?: string | null;
+    providerSubscriptionId?: string | null;
+    providerPaymentId?: string | null;
+    billingProvider?: "RAZORPAY" | "STRIPE" | null;
+    currency?: string | null;
     currentPeriodEnd?: Date | null;
+    currentPeriodStart?: Date | null;
     updatedAt?: Date;
     createdAt?: Date;
     billingInterval?: BillingInterval | null;
@@ -267,12 +273,40 @@ export const subscriptionService = {
             throw new AppError("Subscription mismatch for institute", 400, "SUBSCRIPTION_MISMATCH");
         }
 
+        const now = new Date();
         const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+        const planType = normalizeStoredPlanType(existing.planType, existing.userLimit);
+        const price = getPlanPricing(planType, {
+            grandfathered: isGrandfatheredSubscription(existing.createdAt),
+        });
+        const amount = existing.billingInterval === "YEARLY" ? price.yearly : price.monthly;
+        const periodDays = existing.billingInterval === "YEARLY" ? 365 : 30;
         const updated = await subscriptionRepository.updateByInstituteId(input.instituteId, {
-            status: "TRIAL",
+            status: "ACTIVE",
             trialEndsAt,
+            currentPeriodStart: now,
+            currentPeriodEnd: new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000),
+            billingProvider: "RAZORPAY",
+            providerSubscriptionId: input.subscriptionId,
+            providerPaymentId: input.paymentId,
             autopayEnabled: true,
             paymentMethodAddedAt: new Date(),
+            currency: "INR",
+        });
+
+        await subscriptionTransactionRepository.create({
+            instituteId: input.instituteId,
+            provider: "RAZORPAY",
+            providerPaymentId: input.paymentId,
+            providerSubscriptionId: input.subscriptionId,
+            subscriptionId: updated.id,
+            planType,
+            amount,
+            currency: "INR",
+            status: "SUCCEEDED",
+            startDate: now,
+            endDate: updated.currentPeriodEnd ?? null,
+            metadata: { source: "checkout-confirmation" },
         });
 
         await eventDispatcherService.dispatch({
@@ -305,14 +339,14 @@ export const subscriptionService = {
             case "subscription.cancelled":
                 return "CANCELLED";
             case "payment.failed":
-                return "INACTIVE";
+                return "PAST_DUE";
             default:
                 return null;
         }
     },
 
     assertKnownEvent(event: string): void {
-        const supported = ["subscription.activated", "subscription.charged", "subscription.cancelled", "payment.failed"];
+        const supported = ["subscription.activated", "subscription.charged", "subscription.cancelled", "payment.failed", "payment.captured"];
         if (!supported.includes(event)) {
             throw new AppError(`Unsupported Razorpay event: ${event}`, 400, "UNSUPPORTED_WEBHOOK_EVENT");
         }
@@ -335,6 +369,9 @@ export const subscriptionService = {
             const updated = await subscriptionRepository.upsertByRazorpaySubId(input.razorpaySubId, input.instituteId, {
                 status,
                 currentPeriodEnd: input.currentPeriodEnd,
+                currentPeriodStart: input.event === "subscription.charged" ? new Date() : undefined,
+                billingProvider: "RAZORPAY",
+                providerSubscriptionId: input.razorpaySubId,
                 ...(input.event === "subscription.charged" ? { lastChargedAt: new Date() } : {}),
             });
 
@@ -346,6 +383,9 @@ export const subscriptionService = {
             await subscriptionRepository.updateByRazorpaySubId(input.razorpaySubId, {
                 status,
                 currentPeriodEnd: input.currentPeriodEnd,
+                currentPeriodStart: input.event === "subscription.charged" ? new Date() : undefined,
+                billingProvider: "RAZORPAY",
+                providerSubscriptionId: input.razorpaySubId,
                 ...(input.event === "subscription.charged" ? { lastChargedAt: new Date() } : {}),
             });
 
@@ -365,6 +405,9 @@ export const subscriptionService = {
         const updated = await subscriptionRepository.updateByInstituteId(input.instituteId, {
             status,
             currentPeriodEnd: input.currentPeriodEnd,
+            currentPeriodStart: input.event === "subscription.charged" ? new Date() : undefined,
+            billingProvider: "RAZORPAY",
+            providerSubscriptionId: input.razorpaySubId,
             ...(input.event === "subscription.charged" ? { lastChargedAt: new Date() } : {}),
         });
 

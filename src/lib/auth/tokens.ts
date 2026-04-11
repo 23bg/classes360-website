@@ -1,5 +1,5 @@
-import { jwtAuthService } from "@/modules/auth/infrastructure/jwtAuthService";
-import { AccessTokenClaims as ModuleAccessTokenClaims, RefreshTokenClaims as ModuleRefreshTokenClaims } from "@/modules/auth/domain/types";
+import { jwtAuthService } from "@/features/auth/services/jwtAuthService";
+import { AccessTokenClaims as ModuleAccessTokenClaims, RefreshTokenClaims as ModuleRefreshTokenClaims } from "@/features/auth/types/session";
 
 export type AccessTokenPayload = {
     userId: string;
@@ -56,3 +56,4 @@ export const readRefreshTokenFromCookie = async (): Promise<RefreshTokenPayload 
     if (!token) return null;
     return verifyRefreshToken(token);
 };
+

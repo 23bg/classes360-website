@@ -268,6 +268,28 @@ type BillingSummary = {
     lastPaymentDate?: string | null;
 };
 
+type BillingCheckoutSession = {
+    provider: "RAZORPAY" | "STRIPE";
+    region: "IN" | "GLOBAL" | "UNKNOWN";
+    checkoutMode: "subscription" | "payment";
+    planType: string;
+    interval: string;
+    currency: string;
+    amount: number;
+    taxes: number;
+    totalAmount: number;
+    checkoutSessionId?: string | null;
+    providerSubscriptionId?: string | null;
+    providerPaymentId?: string | null;
+    providerPaymentLinkId?: string | null;
+    checkoutUrl?: string | null;
+    clientSecret?: string | null;
+    publishableKey?: string | null;
+    paymentMethods: Array<"CARD" | "UPI" | "NETBANKING" | "APPLE_PAY" | "GOOGLE_PAY" | "PAYPAL">;
+    redirectRequired: boolean;
+    regionLabel: string;
+};
+
 type UsageSummary = {
     planType: string;
     alertsUsed: number;
@@ -295,8 +317,28 @@ type InvoiceHistoryItem = {
 };
 
 type BillingDashboardPayload = {
+    billingContact: {
+        name: string;
+        email: string | null;
+    };
+    institute: {
+        id: string;
+        name: string | null;
+        country: string | null;
+        countryCode: string | null;
+    };
     summary: BillingSummary;
     usage: UsageSummary;
+    checkout: {
+        provider: "RAZORPAY" | "STRIPE";
+        region: "IN" | "GLOBAL" | "UNKNOWN";
+        regionLabel: string;
+        country?: string | null;
+        recommendedProvider?: "RAZORPAY" | "STRIPE" | null;
+        allowedProviders: Array<"RAZORPAY" | "STRIPE">;
+        currency: string;
+        taxRate: number;
+    };
     policy: {
         hasOverdue: boolean;
         alertsEnabled: boolean;
@@ -364,7 +406,7 @@ type DashboardState = {
     whatsapp: RequestState<WhatsAppIntegrationState> & { mutation: MutationState };
     billing: RequestState<BillingDashboardPayload | null> & {
         subscription: MutationState & {
-            checkout: { subscriptionId?: string; key?: string } | null;
+            checkout: BillingCheckoutSession | null;
         };
         invoice: MutationState;
         retry: MutationState & { invoiceId: string | null };
@@ -842,21 +884,22 @@ export const fetchBillingDashboard = createAsyncThunk("dashboard/fetchBillingDas
 
 export const createBillingSubscription = createAsyncThunk(
     "dashboard/createBillingSubscription",
-    async ({ planType, interval }: { planType: string; interval: string }) => {
+    async ({ planType, interval, provider }: { planType: string; interval: string; provider?: "RAZORPAY" | "STRIPE" | null }) => {
         const response = await api.post(API.INTERNAL.BILLING.ROOT, {
             action: "create-subscription",
             planType,
             interval,
+            provider,
         });
-        return response.data?.data as { subscriptionId?: string; key?: string };
+        return response.data?.data as BillingCheckoutSession;
     }
 );
 
 export const confirmBillingSubscription = createAsyncThunk(
     "dashboard/confirmBillingSubscription",
     async (payload: Record<string, unknown>) => {
-        await api.post(API.INTERNAL.BILLING.CONFIRM, payload);
-        return true;
+        const response = await api.post(API.INTERNAL.BILLING.CONFIRM, payload);
+        return response.data?.data ?? null;
     }
 );
 
@@ -866,8 +909,8 @@ export const generateBillingInvoice = createAsyncThunk("dashboard/generateBillin
 });
 
 export const retryBillingInvoice = createAsyncThunk("dashboard/retryBillingInvoice", async (invoiceId: string) => {
-    await api.post(API.INTERNAL.BILLING.ROOT, { action: "retry-invoice", invoiceId });
-    return invoiceId;
+    const response = await api.post(API.INTERNAL.BILLING.ROOT, { action: "retry-invoice", invoiceId });
+    return response.data?.data as BillingCheckoutSession;
 });
 
 export const fetchIntegrations = createAsyncThunk("dashboard/fetchIntegrations", async () =>

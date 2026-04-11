@@ -1,4 +1,4 @@
-﻿export interface IGoogleAccount {
+export interface IGoogleAccount {
     id: string;
     googleAccountId: string; // The ID from Google's API
     name?: string;

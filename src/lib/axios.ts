@@ -1,4 +1,4 @@
-﻿import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
 import { API } from "../constants";
 import ROUTES from "../constants/routes";
 import { AppError } from "@/lib/utils/error";

@@ -1,7 +1,7 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { readAccessTokenFromCookie, AccessTokenPayload } from "./tokens";
-import { jwtAuthService } from "@/modules/auth/infrastructure/jwtAuthService";
-import { issueSessionUseCase } from "@/modules/auth/application/issueSession.useCase";
+import { jwtAuthService } from "@/features/auth/services/jwtAuthService";
+import { issueSessionUseCase } from "@/features/auth/services/issueSession";
 
 const SESSION_COOKIE = "session_token";
 
@@ -63,9 +63,10 @@ export const issueSessionForUser = async (userId: string): Promise<void> => {
 };
 
 export const revokeAllSessionsForUser = async (userId: string): Promise<void> => {
-    const { authUserRepository } = await import("@/modules/auth/infrastructure/authUserRepository");
+    const { authUserRepository } = await import("@/features/auth/services/authUserRepository");
     await authUserRepository.incrementTokenVersion(userId);
 };
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;
+
 

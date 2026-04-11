@@ -7,6 +7,8 @@ const {
     mockAssertRazorpayReady,
     mockRazorpayCreate,
     mockVerifyCheckoutSignature,
+    mockTransactionRepo,
+    mockEventDispatcherService,
 } = vi.hoisted(() => ({
     mockSubscriptionRepo: {
         createTrial: vi.fn(),
@@ -21,6 +23,14 @@ const {
     mockAssertRazorpayReady: vi.fn(),
     mockRazorpayCreate: vi.fn(),
     mockVerifyCheckoutSignature: vi.fn(),
+    mockTransactionRepo: {
+        create: vi.fn(),
+        findByProviderPaymentId: vi.fn(),
+        findByProviderSubscriptionId: vi.fn(),
+    },
+    mockEventDispatcherService: {
+        dispatch: vi.fn(),
+    },
 }));
 
 vi.mock("@/features/subscription/repositories/subscription.repo", () => ({
@@ -29,6 +39,14 @@ vi.mock("@/features/subscription/repositories/subscription.repo", () => ({
 
 vi.mock("@/features/auth/repositories/user.repo", () => ({
     userRepository: mockUserRepo,
+}));
+
+vi.mock("@/features/billing/subscriptionTransactionDataApi", () => ({
+    subscriptionTransactionRepository: mockTransactionRepo,
+}));
+
+vi.mock("@/lib/notifications/event-dispatcher.service", () => ({
+    eventDispatcherService: mockEventDispatcherService,
 }));
 
 vi.mock("@/lib/config/env", () => ({
@@ -125,7 +143,7 @@ describe("subscriptionService", () => {
         mockUserRepo.countByInstitute.mockResolvedValue(3);
         const summary = await subscriptionService.getBillingSummary("inst1");
         expect(summary.planType).toBe("GROWTH");
-        expect(summary.planAmount).toBe(1999);
+        expect(summary.planAmount).toBe(1799);
         expect(summary.usersUsed).toBe(3);
         expect(summary.userLimit).toBe(5);
     });
@@ -159,7 +177,7 @@ describe("subscriptionService", () => {
 
     it("maps webhook events", () => {
         expect(subscriptionService.mapWebhookEventToStatus("subscription.activated")).toBe("ACTIVE");
-        expect(subscriptionService.mapWebhookEventToStatus("payment.failed")).toBe("INACTIVE");
+        expect(subscriptionService.mapWebhookEventToStatus("payment.failed")).toBe("PAST_DUE");
         expect(subscriptionService.mapWebhookEventToStatus("unknown")).toBeNull();
     });
 

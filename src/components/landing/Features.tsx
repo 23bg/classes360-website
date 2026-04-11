@@ -1,4 +1,4 @@
-﻿import { FeatureCard } from "@/components/landing/FeatureCard";
+import { FeatureCard } from "@/components/landing/FeatureCard";
 
 const modules = [
     {

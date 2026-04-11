@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildInstituteMetadata } from "@/app/i/[slug]/_lib/metadata";
 import { getInstituteAddress, getPublicInstitute, getWhatsAppUrl } from "@/app/i/[slug]/_lib/public-institute";
-import { EnquirySection, InstitutePageShell, LocationBlock } from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+import { EnquirySection, InstitutePageShell, LocationBlock } from "@/features/institute/components/public-site/InstituteWebsiteSections";
 
 type InstituteContactPageProps = {
     params: Promise<{ slug: string }>;
@@ -71,3 +71,4 @@ export default async function InstituteContactPage({ params }: InstituteContactP
         </InstitutePageShell>
     );
 }
+

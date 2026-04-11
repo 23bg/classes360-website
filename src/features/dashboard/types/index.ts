@@ -1,4 +1,4 @@
-﻿export interface StatCard {
+export interface StatCard {
     label: string;
     value: string | number;
     trend: 'up' | 'down' | 'neutral';

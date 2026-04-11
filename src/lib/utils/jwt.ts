@@ -1,4 +1,4 @@
-﻿import jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { logger, serializeError } from "@/lib/logger";
 
 const getJwtSecret = (): string => {

@@ -10,7 +10,7 @@ import { fetchIntegrations } from "@/features/dashboard/dashboardSlice";
 
 type IntegrationItem = {
     id: string;
-    provider: "WHATSAPP" | "EMAIL" | "RAZORPAY";
+    provider: "WHATSAPP" | "EMAIL" | "RAZORPAY" | "STRIPE";
     status: "CONNECTED" | "DISCONNECTED" | "DEGRADED";
     config?: Record<string, unknown> | null;
     updatedAt: string;

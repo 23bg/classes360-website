@@ -1,4 +1,4 @@
-﻿export const API = {
+export const API = {
     BASE_V1: '/api/v1',
     CLASSES360: {
         AUTH: {
@@ -20,6 +20,7 @@
         },
         WEBHOOKS: {
             RAZORPAY: '/webhooks/razorpay',
+            STRIPE: '/webhooks/stripe',
         },
     },
     AUTH: {

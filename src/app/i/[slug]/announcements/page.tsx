@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildInstituteMetadata } from "@/app/i/[slug]/_lib/metadata";
 import { getPublicInstitute } from "@/app/i/[slug]/_lib/public-institute";
-import { InstitutePageShell } from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+import { InstitutePageShell } from "@/features/institute/components/public-site/InstituteWebsiteSections";
 
 type InstituteAnnouncementsPageProps = {
     params: Promise<{ slug: string }>;
@@ -66,3 +66,4 @@ export default async function InstituteAnnouncementsPage({ params }: InstituteAn
         </InstitutePageShell>
     );
 }
+

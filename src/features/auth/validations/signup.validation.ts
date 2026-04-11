@@ -1,4 +1,4 @@
-﻿import z from "zod";
+import z from "zod";
 
 export const signupFormSchema = z.object({
     email: z.string().trim().max(120, "Email cannot exceed 120 characters").email("Enter a valid email"),

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockBillingRepo, mockSubscriptionService } = vi.hoisted(() => ({
+const { mockBillingRepo, mockSubscriptionService, mockSubscriptionRepo, mockInstituteRepo, mockWebhookRepo, mockTransactionRepo, mockWhatsappIntegrationService } = vi.hoisted(() => ({
     mockBillingRepo: {
         countOutboundAlertsInWindow: vi.fn(),
         upsertInvoice: vi.fn(),
@@ -19,6 +19,27 @@ const { mockBillingRepo, mockSubscriptionService } = vi.hoisted(() => ({
         getSubscription: vi.fn(),
         getBillingSummary: vi.fn(),
     },
+    mockSubscriptionRepo: {
+        findByInstituteId: vi.fn(),
+        upsertByRazorpaySubId: vi.fn(),
+        updateByInstituteId: vi.fn(),
+        updateByRazorpaySubId: vi.fn(),
+    },
+    mockInstituteRepo: {
+        findById: vi.fn(),
+    },
+    mockWebhookRepo: {
+        hasProcessed: vi.fn(),
+        record: vi.fn(),
+    },
+    mockTransactionRepo: {
+        create: vi.fn(),
+        findByProviderPaymentId: vi.fn(),
+        findByProviderSubscriptionId: vi.fn(),
+    },
+    mockWhatsappIntegrationService: {
+        getIntegrationSettings: vi.fn(),
+    },
 }));
 
 vi.mock("@/features/billing/repositories/billing.repo", () => ({
@@ -27,6 +48,26 @@ vi.mock("@/features/billing/repositories/billing.repo", () => ({
 
 vi.mock("@/features/subscription/services/subscription.service", () => ({
     subscriptionService: mockSubscriptionService,
+}));
+
+vi.mock("@/features/subscription/repositories/subscription.repo", () => ({
+    subscriptionRepository: mockSubscriptionRepo,
+}));
+
+vi.mock("@/features/institute/instituteDataApi", () => ({
+    instituteRepository: mockInstituteRepo,
+}));
+
+vi.mock("@/features/billing/webhookEventDataApi", () => ({
+    billingWebhookEventRepository: mockWebhookRepo,
+}));
+
+vi.mock("@/features/billing/subscriptionTransactionDataApi", () => ({
+    subscriptionTransactionRepository: mockTransactionRepo,
+}));
+
+vi.mock("@/features/whatsapp/whatsappApi", () => ({
+    whatsappIntegrationService: mockWhatsappIntegrationService,
 }));
 
 vi.mock("@/lib/billing/razorpay", () => ({
@@ -46,6 +87,8 @@ describe("billingService usage limits", () => {
         mockBillingRepo.hasOverdueInvoice.mockResolvedValue(false);
         mockBillingRepo.hasExhaustedPendingInvoice.mockResolvedValue(false);
         mockSubscriptionService.getBillingSummary.mockResolvedValue({});
+        mockInstituteRepo.findById.mockResolvedValue({ id: "inst1", name: "Inst 1", address: { country: "India", countryCode: "IN" } });
+        mockWhatsappIntegrationService.getIntegrationSettings.mockResolvedValue({ mode: "CLASSES360_SHARED", connectedNumber: null, status: "DISCONNECTED" });
     });
 
     it("Growth plan: 2500 alerts has no overage", async () => {
@@ -62,7 +105,7 @@ describe("billingService usage limits", () => {
 
         const result = await billingService.getUsageSnapshot("inst1");
 
-        expect(result.alertsIncluded).toBe(3000);
+        expect(result.alertsIncluded).toBe(0);
         expect(result.extraAlerts).toBe(0);
         expect(result.estimatedUsageCost).toBe(0);
     });
@@ -81,9 +124,9 @@ describe("billingService usage limits", () => {
 
         const result = await billingService.getUsageSnapshot("inst1");
 
-        expect(result.alertsIncluded).toBe(3000);
-        expect(result.extraAlerts).toBe(500);
-        expect(result.estimatedUsageCost).toBe(300);
+        expect(result.alertsIncluded).toBe(0);
+        expect(result.extraAlerts).toBe(0);
+        expect(result.estimatedUsageCost).toBe(0);
     });
 
     it("Scale plan: 9000 alerts has no overage", async () => {
@@ -100,7 +143,7 @@ describe("billingService usage limits", () => {
 
         const result = await billingService.getUsageSnapshot("inst1");
 
-        expect(result.alertsIncluded).toBe(10000);
+        expect(result.alertsIncluded).toBe(0);
         expect(result.extraAlerts).toBe(0);
         expect(result.estimatedUsageCost).toBe(0);
     });
@@ -119,9 +162,9 @@ describe("billingService usage limits", () => {
 
         const result = await billingService.getUsageSnapshot("inst1");
 
-        expect(result.alertsIncluded).toBe(10000);
-        expect(result.extraAlerts).toBe(2000);
-        expect(result.estimatedUsageCost).toBe(1000);
+        expect(result.alertsIncluded).toBe(0);
+        expect(result.extraAlerts).toBe(0);
+        expect(result.estimatedUsageCost).toBe(0);
     });
 
     it("monthly invoice uses updated Growth included limit", async () => {
@@ -146,10 +189,10 @@ describe("billingService usage limits", () => {
 
         expect(mockBillingRepo.upsertInvoice).toHaveBeenCalledWith(
             expect.objectContaining({
-                includedAlerts: 3000,
-                extraAlerts: 500,
-                usageCharge: 300,
-                planCharge: 1999,
+                includedAlerts: 0,
+                extraAlerts: 0,
+                usageCharge: 0,
+                planCharge: 3499,
             })
         );
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import QrCodeGeneratorTool from "@/modules/tools/components/QrCodeGeneratorTool";
+import QrCodeGeneratorTool from "@/features/tools/components/QrCodeGeneratorTool";
 
 export const metadata: Metadata = {
     title: "Free QR Code Generator for Coaching Institutes",
@@ -21,3 +21,4 @@ export default function QrCodeGeneratorPage() {
         </main>
     );
 }
+

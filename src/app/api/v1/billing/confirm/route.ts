@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSessionToken, readSessionFromCookie, setSessionCookie } from "@/lib/auth/auth";
 import { canManageBilling } from "@/lib/auth/permissions";
-import { subscriptionService } from "@/features/subscription/subscriptionApi";
+import { billingService } from "@/features/billing/services/billing.service";
 import { toAppError } from "@/lib/utils/error";
 
 export async function POST(req: NextRequest) {
@@ -22,12 +22,17 @@ export async function POST(req: NextRequest) {
         }
 
         const body = (await req.json().catch(() => ({}))) as {
+            provider?: "RAZORPAY" | "STRIPE";
             razorpay_payment_id?: string;
             razorpay_subscription_id?: string;
             razorpay_signature?: string;
+            checkout_session_id?: string;
+            invoiceId?: string;
         };
 
-        if (!body.razorpay_payment_id || !body.razorpay_subscription_id || !body.razorpay_signature) {
+        const provider = body.provider ?? (body.razorpay_payment_id ? "RAZORPAY" : "STRIPE");
+
+        if (provider === "RAZORPAY" && (!body.razorpay_payment_id || !body.razorpay_subscription_id || !body.razorpay_signature)) {
             return NextResponse.json(
                 {
                     success: false,
@@ -37,16 +42,27 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const data = await subscriptionService.confirmRazorpaySubscription({
+        const data = await billingService.verifyCheckout({
             instituteId: session.instituteId,
+            userId: session.userId,
+            provider,
             paymentId: body.razorpay_payment_id,
             subscriptionId: body.razorpay_subscription_id,
             signature: body.razorpay_signature,
+            checkoutSessionId: body.checkout_session_id,
+            invoiceId: body.invoiceId ?? null,
         });
+
+        if (!data.verified) {
+            return NextResponse.json(
+                { success: true, data: { ...data, message: "Payment is still processing" } },
+                { status: 202 }
+            );
+        }
 
         const nextToken = createSessionToken({
             ...session,
-            subscriptionStatus: data.status,
+            subscriptionStatus: "ACTIVE",
         });
         await setSessionCookie(nextToken);
 

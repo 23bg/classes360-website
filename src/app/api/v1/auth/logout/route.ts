@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { clearSessionCookie } from "@/lib/auth/auth";
 import { createRouteLogger } from "@/lib/api/route-logger";
-import { logoutUseCase } from "@/modules/auth/application/logout.useCase";
-import { fail, ok } from "@/modules/auth/api/responses";
+import { logoutUseCase } from "@/features/auth/services/logout";
+import { fail, ok } from "@/features/auth/api/responses";
 
 export async function POST() {
     const routeLog = createRouteLogger("/api/v1/auth/logout#POST");
@@ -21,3 +21,4 @@ export async function POST() {
         return NextResponse.json(fail("Logout failed"), { status: 500 });
     }
 }
+

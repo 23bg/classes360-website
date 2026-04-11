@@ -15,7 +15,7 @@ export default function HelpArticle({ doc, previousDoc, nextDoc }: HelpArticlePr
 
     return (
         <article className="rounded-xl border bg-card p-5 md:p-8">
-            <header className="mb-8 space-y-2 border-b pb-6">
+            <header className="mb-8 space-y-2 pb-6">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{doc.category}</p>
                 <h1 className="text-3xl font-semibold tracking-tight">{doc.title}</h1>
                 <p className="text-sm text-muted-foreground">Last updated: {doc.lastUpdated}</p>

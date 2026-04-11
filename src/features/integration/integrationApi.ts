@@ -11,6 +11,11 @@ const getRazorpayStatus = () => {
     return connected ? "CONNECTED" : "DISCONNECTED";
 };
 
+const getStripeStatus = () => {
+    const connected = Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_PUBLISHABLE_KEY);
+    return connected ? "CONNECTED" : "DISCONNECTED";
+};
+
 export const integrationService = {
     async syncAndList(instituteId: string) {
         const whatsappAccount = await prisma.whatsAppAccount.findUnique({
@@ -92,6 +97,28 @@ export const integrationService = {
                     status: getRazorpayStatus(),
                     config: {
                         keyIdConfigured: Boolean(env.RAZORPAY_KEY_ID),
+                    },
+                },
+            }),
+            prisma.integration.upsert({
+                where: {
+                    instituteId_provider: {
+                        instituteId,
+                        provider: "STRIPE",
+                    },
+                },
+                create: {
+                    instituteId,
+                    provider: "STRIPE",
+                    status: getStripeStatus(),
+                    config: {
+                        publishableKeyConfigured: Boolean(env.STRIPE_PUBLISHABLE_KEY),
+                    },
+                },
+                update: {
+                    status: getStripeStatus(),
+                    config: {
+                        publishableKeyConfigured: Boolean(env.STRIPE_PUBLISHABLE_KEY),
                     },
                 },
             }),

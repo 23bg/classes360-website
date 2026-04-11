@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DEMO_VIDEO_EMBED_URL, DEMO_VIDEO_URL } from "@/constants/external-links";

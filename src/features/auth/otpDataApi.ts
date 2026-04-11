@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/db/prisma";
 import { requireEnv } from "@/lib/config/env";
 import { userRepository } from "@/features/auth/userDataApi";
-import { OtpPurpose } from "@/modules/auth/domain/otpPurpose";
+import { OtpPurpose } from "@/features/auth/constants/otpPurpose";
 
 const MAX_VERIFY_ATTEMPTS = 5;
 

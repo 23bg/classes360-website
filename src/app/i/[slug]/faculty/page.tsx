@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { buildInstituteMetadata } from "@/app/i/[slug]/_lib/metadata";
 import { getPublicInstitute } from "@/app/i/[slug]/_lib/public-institute";
-import { FacultyGrid, InstitutePageShell } from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+import { FacultyGrid, InstitutePageShell } from "@/features/institute/components/public-site/InstituteWebsiteSections";
 
 type InstituteFacultyPageProps = {
     params: Promise<{ slug: string }>;
@@ -40,3 +40,4 @@ export default async function InstituteFacultyPage({ params }: InstituteFacultyP
         </InstitutePageShell>
     );
 }
+

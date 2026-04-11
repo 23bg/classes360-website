@@ -1,4 +1,4 @@
-﻿import AuthLayout from '@/components/layout/AuthLayout'
+import AuthLayout from '@/components/layout/AuthLayout'
 import type { Metadata } from "next";
 import React from 'react'
 import { ReduxProvider } from "@/providers/ReduxProvider";

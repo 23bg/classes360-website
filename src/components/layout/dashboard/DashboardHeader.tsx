@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import ImraboChat from "@/modules/ai/components/ImraboChat";
-import UserMenu from "@/modules/auth/components/UserMenu";
+import ImraboChat from "@/features/ai/components/ImraboChat";
+import UserMenu from "@/features/auth/components/UserMenu";
 import GlobalSearch from "@/components/layout/dashboard/GlobalSearch";
 import ROUTES from "@/constants/routes";
 import { Bell, Building2, CircleHelp } from "lucide-react";
@@ -52,7 +52,7 @@ export default function DashboardHeader() {
     });
 
     return (
-        <header id="dashboard-header" className="flex h-16 items-center justify-between px-4 border-b bg-background dark:bg-zinc-900/40 backdrop-blur-sm rounded-t-2xl">
+        <header id="dashboard-header" className="flex h-16 items-center justify-between px-4 bg-background dark:bg-zinc-900/40 backdrop-blur-sm rounded-t-2xl">
             <div className="flex items-center gap-3 min-w-0">
                 <SidebarTrigger />
 
@@ -115,17 +115,17 @@ export default function DashboardHeader() {
                         <ScrollArea className="h-80">
                             <div className="flex flex-col">
                                 {/* Example Notification */}
-                                <div className="px-4 py-3 border-b hover:bg-muted/50 cursor-pointer">
+                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
                                     <p className="text-sm font-medium">New student registered</p>
                                     <p className="text-xs text-muted-foreground">2 min ago</p>
                                 </div>
 
-                                <div className="px-4 py-3 border-b hover:bg-muted/50 cursor-pointer">
+                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
                                     <p className="text-sm font-medium">Payment received</p>
                                     <p className="text-xs text-muted-foreground">10 min ago</p>
                                 </div>
 
-                                <div className="px-4 py-3 border-b hover:bg-muted/50 cursor-pointer">
+                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
                                     <p className="text-sm font-medium">Batch updated</p>
                                     <p className="text-xs text-muted-foreground">1 hour ago</p>
                                 </div>
@@ -153,3 +153,4 @@ export default function DashboardHeader() {
         </header>
     );
 }
+

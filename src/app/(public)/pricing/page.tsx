@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import PageContainer from "@/components/layout/PageContainer";
 import Section from "@/components/layout/Section";

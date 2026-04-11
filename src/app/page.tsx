@@ -3,10 +3,10 @@ import { cookies, headers } from "next/headers";
 import { readSessionFromCookie } from "@/lib/auth/auth";
 import { getRequestHostname, resolveHost } from "@/lib/tenancy/host-routing";
 import { instituteService } from "@/features/institute/instituteApi";
-import LandingPage from "@/modules/marketing/LandingPage";
-import DashboardHome from "@/modules/dashboard/DashboardHome";
+import LandingPage from "@/features/marketing/components/LandingPage";
+import DashboardHome from "@/features/dashboard/components/DashboardHome";
 import DashboardLayout from "@/components/layout/dashboard/DashboardLayout";
-import InstitutePublicView from "@/modules/institute/components/InstitutePublicView";
+import InstitutePublicView from "@/features/institute/components/InstitutePublicView";
 
 // Cache the root page (GitHub style: fast for all users)
 export const revalidate = 60; // ISR: revalidate every minute

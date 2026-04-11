@@ -14,7 +14,7 @@ import {
     EnquirySection,
     FacultyGrid,
     InstitutePageShell,
-} from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+} from "@/features/institute/components/public-site/InstituteWebsiteSections";
 import Link from "next/link";
 
 type InstituteCourseDetailsPageProps = {
@@ -97,3 +97,4 @@ export default async function InstituteCourseDetailsPage({ params }: InstituteCo
         </InstitutePageShell>
     );
 }
+

@@ -1,9 +1,14 @@
 import { getPlanPricing, isGrandfatheredSubscription, PLAN_CONFIG, PlanType } from "@/config/plans";
-import { billingRepository } from "@/features/billing/billingDataApi";
-import { subscriptionService } from "@/features/subscription/subscriptionApi";
-import { assertRazorpayReady, razorpay } from "@/lib/billing/razorpay";
+import { billingRepository } from "@/features/billing/repositories/billing.repo";
+import { detectBillingRegion, getRegionLabel, resolveBillingProvider } from "@/features/billing/billingRouting";
+import { getBillingProvider } from "@/features/billing/providers";
+import { subscriptionTransactionRepository } from "@/features/billing/subscriptionTransactionDataApi";
+import { subscriptionService } from "@/features/subscription/services/subscription.service";
 import { AppError } from "@/lib/utils/error";
 import { whatsappIntegrationService } from "@/features/whatsapp/whatsappApi";
+import { instituteRepository } from "@/features/institute/instituteDataApi";
+import { env } from "@/lib/config/env";
+import type { BillingCheckoutSession, BillingProviderKey } from "@/features/billing/billing.types";
 
 type BillingPeriod = {
     month: number;
@@ -66,10 +71,224 @@ const getDueDate = (runAt = new Date()) => new Date(Date.UTC(runAt.getUTCFullYea
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const RETRY_DAY_OFFSETS = [0, 1, 3, 5];
 
+const INTERNATIONAL_PRICING_USD: Record<PlanType, { monthly: number; yearly: number }> = {
+    STARTER: { monthly: 12, yearly: 120 },
+    TEAM: { monthly: 24, yearly: 240 },
+    GROWTH: { monthly: 42, yearly: 420 },
+    SCALE: { monthly: 60, yearly: 600 },
+};
+
+const getBaseUrl = () => env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
+const getTaxRate = (region: "IN" | "GLOBAL" | "UNKNOWN") => (region === "IN" ? 0.18 : 0);
+
+const getQuotedPrice = (planType: PlanType, interval: "MONTHLY" | "YEARLY", region: "IN" | "GLOBAL" | "UNKNOWN") => {
+    if (region === "GLOBAL") {
+        return INTERNATIONAL_PRICING_USD[planType][interval === "YEARLY" ? "yearly" : "monthly"];
+    }
+
+    const pricing = getPlanPricing(planType, {
+        grandfathered: false,
+        version: "CURRENT",
+    });
+
+    return interval === "YEARLY" ? pricing.yearly : pricing.monthly;
+};
+
+const buildCheckoutSession = (input: {
+    provider: BillingProviderKey;
+    region: "IN" | "GLOBAL" | "UNKNOWN";
+    planType: PlanType;
+    interval: "MONTHLY" | "YEARLY";
+    currency: string;
+    amount: number;
+    taxes: number;
+    totalAmount: number;
+    providerCheckout: BillingCheckoutSession;
+}): BillingCheckoutSession => ({
+    ...input.providerCheckout,
+    provider: input.provider,
+    region: input.region,
+    planType: input.planType,
+    interval: input.interval,
+    currency: input.currency,
+    amount: input.amount,
+    taxes: input.taxes,
+    totalAmount: input.totalAmount,
+});
+
 const addDaysUtc = (value: Date, offsetDays: number) =>
     new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate() + offsetDays, value.getUTCHours(), value.getUTCMinutes(), value.getUTCSeconds(), value.getUTCMilliseconds()));
 
 export const billingService = {
+    async getCheckoutContext(instituteId: string, requestedProvider?: BillingProviderKey | null) {
+        const [subscription, institute] = await Promise.all([
+            subscriptionService.getSubscription(instituteId),
+            instituteRepository.findById(instituteId),
+        ]);
+
+        const country = institute?.address?.country ?? null;
+        const region = detectBillingRegion(country);
+        const recommendedProvider = resolveBillingProvider(country, requestedProvider ?? null);
+        const provider = recommendedProvider ?? "RAZORPAY";
+        const currency = region === "GLOBAL" ? "USD" : "INR";
+
+        return {
+            subscription,
+            institute,
+            country,
+            region,
+            regionLabel: getRegionLabel(region),
+            provider,
+            recommendedProvider,
+            currency,
+            taxRate: getTaxRate(region),
+            allowedProviders: region === "UNKNOWN" ? (["RAZORPAY", "STRIPE"] as BillingProviderKey[]) : [provider],
+        };
+    },
+
+    async createCheckoutSession(input: {
+        instituteId: string;
+        userId: string;
+        email: string;
+        planType: PlanType;
+        interval: "MONTHLY" | "YEARLY";
+        provider?: BillingProviderKey | null;
+        invoiceId?: string | null;
+    }) {
+        const context = await this.getCheckoutContext(input.instituteId, input.provider ?? null);
+        const provider = input.provider ?? context.provider;
+        const providerImpl = getBillingProvider(provider);
+        const quotedAmount = input.invoiceId
+            ? (await billingRepository.findInvoiceById(input.invoiceId))?.totalAmount ?? 0
+            : getQuotedPrice(input.planType, input.interval, context.region);
+        const taxes = round2(quotedAmount * context.taxRate);
+        const totalAmount = round2(quotedAmount + taxes);
+        const successUrl = provider === "STRIPE"
+            ? `${getBaseUrl()}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+            : `${getBaseUrl()}/billing?checkout=success`;
+        const cancelUrl = `${getBaseUrl()}/billing?checkout=cancelled`;
+        const checkout = await providerImpl.createCheckoutSession({
+            instituteId: input.instituteId,
+            userId: input.userId,
+            email: input.email,
+            provider,
+            country: context.country,
+            planType: input.planType,
+            interval: input.interval,
+            currency: context.currency,
+            amount: quotedAmount,
+            taxes,
+            totalAmount,
+            description: input.invoiceId ? "Invoice payment" : `${input.planType} subscription`,
+            successUrl,
+            cancelUrl,
+            invoiceId: input.invoiceId ?? null,
+            existingSubscriptionId: context.subscription.razorpaySubId ?? null,
+        });
+
+        return buildCheckoutSession({
+            provider,
+            region: context.region,
+            planType: input.planType,
+            interval: input.interval,
+            currency: context.currency,
+            amount: quotedAmount,
+            taxes,
+            totalAmount,
+            providerCheckout: checkout,
+        });
+    },
+
+    async verifyCheckout(input: {
+        instituteId: string;
+        userId: string;
+        provider: BillingProviderKey;
+        paymentId?: string;
+        subscriptionId?: string;
+        signature?: string;
+        checkoutSessionId?: string;
+        invoiceId?: string | null;
+    }) {
+        const providerImpl = getBillingProvider(input.provider);
+        const verification = await providerImpl.verifyPayment(input);
+
+        if (!verification.verified) {
+            return verification;
+        }
+
+        const subscription = await subscriptionService.getSubscription(input.instituteId);
+        const invoice = input.invoiceId ? await billingRepository.findInvoiceById(input.invoiceId) : null;
+        const billingInterval = subscription.billingInterval ?? "MONTHLY";
+        const isStripe = input.provider === "STRIPE";
+        const transactionCurrency = invoice?.currency ?? (isStripe ? "USD" : "INR");
+        const planPricing = isStripe
+            ? INTERNATIONAL_PRICING_USD[subscription.planType as PlanType]
+            : getPlanPricing(subscription.planType as PlanType, { grandfathered: isGrandfatheredSubscription(subscription.createdAt) });
+        const transactionAmount = invoice?.totalAmount ?? (billingInterval === "YEARLY" ? planPricing.yearly : planPricing.monthly);
+        const periodDays = billingInterval === "YEARLY" ? 365 : 30;
+        const existingTransaction = verification.providerPaymentId
+            ? await subscriptionTransactionRepository.findByProviderPaymentId(input.provider, verification.providerPaymentId)
+            : null;
+
+        if (!existingTransaction) {
+            await subscriptionTransactionRepository.create({
+                instituteId: input.instituteId,
+                userId: input.userId,
+                provider: input.provider,
+                providerPaymentId: verification.providerPaymentId ?? null,
+                providerSubscriptionId: verification.providerSubscriptionId ?? null,
+                subscriptionId: subscription.id,
+                amount: transactionAmount,
+                currency: transactionCurrency,
+                status: "VERIFIED",
+                startDate: new Date(),
+                metadata: {
+                    source: "checkout-confirmation",
+                    checkoutSessionId: input.checkoutSessionId ?? null,
+                    invoiceId: input.invoiceId ?? null,
+                },
+            });
+        }
+
+        await subscriptionRepository.updateByInstituteId(input.instituteId, {
+            billingProvider: input.provider,
+            providerSubscriptionId: verification.providerSubscriptionId ?? null,
+            providerPaymentId: verification.providerPaymentId ?? null,
+            status: "ACTIVE",
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + periodDays * 24 * 60 * 60 * 1000),
+            autopayEnabled: true,
+            paymentMethodAddedAt: new Date(),
+            currency: transactionCurrency,
+        });
+
+        return verification;
+    },
+
+    async createInvoicePaymentSession(input: {
+        instituteId: string;
+        userId: string;
+        email: string;
+        invoiceId: string;
+        provider?: BillingProviderKey | null;
+    }) {
+        const invoice = await billingRepository.findInvoiceById(input.invoiceId);
+        if (!invoice) {
+            throw new AppError("Invoice not found", 404, "INVOICE_NOT_FOUND");
+        }
+
+        return this.createCheckoutSession({
+            instituteId: input.instituteId,
+            userId: input.userId,
+            email: input.email,
+            planType: invoice.planCode as PlanType,
+            interval: invoice.billingInterval,
+            provider: input.provider,
+            invoiceId: invoice.id,
+        });
+    },
+
     async getUsageSnapshot(instituteId: string, now = new Date()) {
         const subscription = await subscriptionService.getSubscription(instituteId);
         const planType = toStoredPlanType(subscription.planType, subscription.userLimit);
@@ -277,7 +496,7 @@ export const billingService = {
         };
     },
 
-    async getBillingDashboard(instituteId: string) {
+    async getBillingDashboard(instituteId: string, contactEmail?: string | null) {
         const [summary, usage, invoices, policy, sender] = await Promise.all([
             subscriptionService.getBillingSummary(instituteId),
             this.getUsageSnapshot(instituteId),
@@ -285,11 +504,34 @@ export const billingService = {
             this.getOperationalPolicy(instituteId),
             whatsappIntegrationService.getIntegrationSettings(instituteId),
         ]);
+        const institute = await instituteRepository.findById(instituteId);
+
+        const checkoutContext = await this.getCheckoutContext(instituteId);
 
         return {
+            billingContact: {
+                name: institute?.name ?? "Billing contact",
+                email: contactEmail ?? null,
+            },
+            institute: {
+                id: institute?.id ?? instituteId,
+                name: institute?.name ?? null,
+                country: institute?.address?.country ?? null,
+                countryCode: institute?.address?.countryCode ?? null,
+            },
             summary,
             usage,
             policy,
+            checkout: {
+                provider: checkoutContext.provider,
+                region: checkoutContext.region,
+                regionLabel: checkoutContext.regionLabel,
+                country: checkoutContext.country,
+                recommendedProvider: checkoutContext.recommendedProvider,
+                allowedProviders: checkoutContext.allowedProviders,
+                currency: checkoutContext.currency,
+                taxRate: checkoutContext.taxRate,
+            },
             sender: {
                 mode: sender.mode,
                 connectedNumber: sender.connectedNumber,

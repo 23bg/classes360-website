@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 import api from "./axios";
 import { ApiResponse } from "../types/api";
 import { AppError } from "@/lib/utils/error";

@@ -1,4 +1,4 @@
-﻿// Enums from Prisma schema
+// Enums from Prisma schema
 export enum AdminRole {
     SUPERADMIN = 'SUPERADMIN',
     SUPPORT = 'SUPPORT',

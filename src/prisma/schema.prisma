@@ -16,7 +16,21 @@ enum UserRole {
 enum SubscriptionStatus {
     TRIAL
     ACTIVE
+    PAST_DUE
     INACTIVE
+    CANCELLED
+}
+
+enum BillingProvider {
+    RAZORPAY
+    STRIPE
+}
+
+enum BillingTransactionStatus {
+    PENDING
+    VERIFIED
+    SUCCEEDED
+    FAILED
     CANCELLED
 }
 
@@ -57,6 +71,7 @@ enum IntegrationProvider {
     WHATSAPP
     EMAIL
     RAZORPAY
+    STRIPE
 }
 
 enum IntegrationStatus {
@@ -229,11 +244,16 @@ type Address {
 model Subscription {
     id                   String             @id @default(auto()) @map("_id") @db.ObjectId
     instituteId          String             @unique @db.ObjectId
+    billingProvider      BillingProvider?
     razorpaySubId        String?
+    providerSubscriptionId String?
+    providerPaymentId    String?
+    currency             String             @default("INR")
     planType             PlanType           @default(SOLO)
     billingInterval      BillingInterval    @default(MONTHLY)
     userLimit            Int                @default(1)
     trialEndsAt          DateTime?
+    currentPeriodStart   DateTime?
     status               SubscriptionStatus @default(TRIAL)
     currentPeriodEnd     DateTime?
     lastChargedAt        DateTime?
@@ -531,6 +551,50 @@ model BillingInvoice {
     @@index([instituteId, status])
     @@index([dueDate])
     @@map("billing_invoices")
+}
+
+model SubscriptionTransaction {
+    id                     String                  @id @default(auto()) @map("_id") @db.ObjectId
+    instituteId            String                  @db.ObjectId
+    userId                 String?                 @db.ObjectId
+    subscriptionId         String?                 @db.ObjectId
+    provider               BillingProvider
+    providerPaymentId      String?
+    providerSubscriptionId String?
+    providerEventId        String?
+    planType               String?
+    amount                 Float
+    currency               String
+    status                 BillingTransactionStatus
+    startDate              DateTime?
+    endDate                DateTime?
+    metadata               Json?
+    createdAt              DateTime                @default(now())
+    updatedAt              DateTime                @updatedAt
+
+    @@index([instituteId])
+    @@index([provider, providerPaymentId])
+    @@index([provider, providerSubscriptionId])
+    @@map("subscription_transactions")
+}
+
+model BillingWebhookEvent {
+    id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+    provider               BillingProvider
+    providerEventId        String
+    eventType              String
+    instituteId            String?  @db.ObjectId
+    providerPaymentId      String?
+    providerSubscriptionId String?
+    payload                Json?
+    processedAt            DateTime @default(now())
+    createdAt              DateTime @default(now())
+    updatedAt              DateTime @updatedAt
+
+    @@unique([provider, providerEventId])
+    @@index([provider, providerPaymentId])
+    @@index([provider, providerSubscriptionId])
+    @@map("billing_webhook_events")
 }
 
 model AdminNotification {

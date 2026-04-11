@@ -1,4 +1,4 @@
-﻿import { ShieldCheck, Building2, CreditCard, MessageSquareQuote } from "lucide-react";
+import { ShieldCheck, Building2, CreditCard, MessageSquareQuote } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export default function Trust() {
@@ -11,7 +11,7 @@ export default function Trust() {
     ];
 
     return (
-        <section className="w-full border-b ">
+        <section className="w-full ">
             <div className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6">
                 <div className="space-y-2 text-center">
                     <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h2>

@@ -1,4 +1,4 @@
-﻿import crypto from "crypto";
+import crypto from "crypto";
 import Razorpay from "razorpay";
 import { env } from "@/lib/config/env";
 import { AppError } from "@/lib/utils/error";
@@ -29,6 +29,10 @@ export const verifyRazorpayWebhookSignature = (payload: string, signature: strin
         .update(payload)
         .digest("hex");
 
+    if (expected.length !== signature.length) {
+        return false;
+    }
+
     return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 };
 
@@ -47,6 +51,13 @@ export const verifyRazorpayCheckoutSignature = (input: {
         .update(payload)
         .digest("hex");
 
+    if (expected.length !== input.signature.length) {
+        return false;
+    }
+
     return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(input.signature));
 };
+
+export const createRazorpayHmac = (payload: string, secret: string): string =>
+    crypto.createHmac("sha256", secret).update(payload).digest("hex");
 

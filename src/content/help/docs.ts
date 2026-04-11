@@ -1,4 +1,4 @@
-﻿import { HELP_CATEGORY_LABELS, HELP_CATEGORY_ORDER } from "@/content/help/categories";
+import { HELP_CATEGORY_LABELS, HELP_CATEGORY_ORDER } from "@/content/help/categories";
 import {
     getArticleBySlug,
     getArticleIndexBySlug,

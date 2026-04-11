@@ -1,30 +1,48 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import type { PlanType } from "@/config/plans";
+import { PLAN_CONFIG } from "@/config/plans";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-import FeatureGroup from "./FeatureGroup";
-import FeatureItem from "./FeatureItem";
-import type { FeatureGroupDefinition, PlanDefinition } from "./pricing-data";
-import { formatPlanPrice, planFeatureMatrix } from "./pricing-data";
+import type { PlanDefinition } from "./pricing-data";
+import { formatPlanPrice } from "./pricing-data";
 
 type PlanCardProps = {
     plan: PlanDefinition;
     yearlyBilling: boolean;
     billingSuffix: string;
-    featureGroups: FeatureGroupDefinition[];
-    onCompareClick: (planType: PlanType) => void;
 };
 
 export default function PlanCard({
     plan,
     yearlyBilling,
     billingSuffix,
-    featureGroups,
-    onCompareClick,
 }: PlanCardProps) {
+    const t = useTranslations("pricing");
+    const planKey = plan.key.toLowerCase();
+    const userLimit = PLAN_CONFIG[plan.key].userLimit;
+
+    const usersLabel = userLimit === null
+        ? t(`plans.${planKey}.usersUnlimited`)
+        : t("plans.usersUpTo", { count: userLimit });
+
+    const bestFitLines = [
+        t(`plans.${planKey}.whenToUseLine1`),
+        t(`plans.${planKey}.whenToUseLine2`),
+        t(`plans.${planKey}.whenToUseLine3`),
+    ];
+
+    const includesLines = [
+        t("plans.capabilities.item1"),
+        t("plans.capabilities.item2"),
+        t("plans.capabilities.item3"),
+        t("plans.capabilities.item4"),
+        t("plans.capabilities.item5"),
+    ];
+
     return (
         <Card
             className={plan.highlight ? "rounded-lg border-2 border-primary shadow-lg" : "rounded-lg border"}
@@ -34,46 +52,51 @@ export default function PlanCard({
                     <CardTitle className="text-4xl font-semibold">
                         INR {formatPlanPrice(plan.key, yearlyBilling)}
                     </CardTitle>
-                    {plan.highlight ? <Badge>Most Popular</Badge> : null}
+                    {plan.highlight ? <Badge>{t("mostPopular")}</Badge> : null}
                 </div>
 
                 <p className="text-sm text-muted-foreground">{billingSuffix}</p>
 
-                <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">{plan.name}</h3>
-                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <div className="space-y-2">
+                    <h3 className="text-lg font-semibold">{t(`plans.${planKey}.name`)}</h3>
+                    <p className="text-sm text-muted-foreground">{t(`plans.${planKey}.description`)}</p>
+                    <p className="inline-flex rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        {usersLabel}
+                    </p>
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-6">
-                {featureGroups.map((group) => (
-                    <FeatureGroup key={group.id} title={group.title}>
-                        {group.features.map((feature) => {
-                            const availability = planFeatureMatrix[plan.key][feature.id];
+            <CardContent className="space-y-5">
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t("plans.includesLabel")}
+                    </p>
+                    <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+                        {includesLines.map((line) => (
+                            <li key={line} className="leading-5">
+                                {line}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
 
-                            return (
-                                <FeatureItem
-                                    key={feature.id}
-                                    label={feature.label}
-                                    included={availability.included}
-                                    value={availability.value}
-                                />
-                            );
-                        })}
-                    </FeatureGroup>
-                ))}
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t("plans.whenToUse")}
+                    </p>
+                    <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+                        {bestFitLines.map((line) => (
+                            <li key={line} className="leading-5">
+                                {line}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             </CardContent>
 
-            <CardFooter className="grid gap-2">
+            <CardFooter>
                 <Button asChild className="h-11 w-full">
-                    <Link href={plan.link}>{plan.cta}</Link>
-                </Button>
-                <Button
-                    variant="outline"
-                    className="h-10 w-full"
-                    onClick={() => onCompareClick(plan.key)}
-                >
-                    Compare plans
+                    <Link href={plan.link}>{t(`plans.${planKey}.cta`)}</Link>
                 </Button>
             </CardFooter>
         </Card>

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authService } from "@/features/auth/authDomainApi";
 import { createRouteLogger } from "@/lib/api/route-logger";
 import { toAppError } from "@/lib/utils/error";
-import { fail, ok } from "@/modules/auth/api/responses";
-import { OtpPurpose } from "@/modules/auth/domain/otpPurpose";
+import { fail, ok } from "@/features/auth/api/responses";
+import { OtpPurpose } from "@/features/auth/constants/otpPurpose";
 import { z } from "zod";
 
 const schema = z.object({
@@ -33,3 +33,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(fail(appError.message), { status: appError.statusCode });
     }
 }
+

@@ -1,4 +1,4 @@
-﻿import VerificationForm from '@/features/auth/components/VerificationForm'
+import VerificationForm from '@/features/auth/components/VerificationForm'
 
 export default function page() {
     return <VerificationForm />

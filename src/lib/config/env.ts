@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
 const emptyToUndefined = (value: unknown) =>
     typeof value === "string" && value.trim() === "" ? undefined : value;
@@ -41,6 +41,17 @@ const envSchema = z.object({
     RAZORPAY_PLAN_ID_GROWTH_YEARLY: z.string().optional(),
     RAZORPAY_PLAN_ID_SCALE_MONTHLY: z.string().optional(),
     RAZORPAY_PLAN_ID_SCALE_YEARLY: z.string().optional(),
+    STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_PRICE_ID_STARTER_MONTHLY: z.string().optional(),
+    STRIPE_PRICE_ID_STARTER_YEARLY: z.string().optional(),
+    STRIPE_PRICE_ID_TEAM_MONTHLY: z.string().optional(),
+    STRIPE_PRICE_ID_TEAM_YEARLY: z.string().optional(),
+    STRIPE_PRICE_ID_GROWTH_MONTHLY: z.string().optional(),
+    STRIPE_PRICE_ID_GROWTH_YEARLY: z.string().optional(),
+    STRIPE_PRICE_ID_SCALE_MONTHLY: z.string().optional(),
+    STRIPE_PRICE_ID_SCALE_YEARLY: z.string().optional(),
     WHATSAPP_PHONE_NUMBER_ID: z.preprocess(emptyToUndefined, z.string().optional()),
     WHATSAPP_ACCESS_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
     WHATSAPP_VERIFY_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),

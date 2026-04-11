@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRouteLogger } from "@/lib/api/route-logger";
 import { env } from "@/lib/config/env";
 import { readSessionFromCookie } from "@/lib/auth/auth";
-import { buildHelpContext } from "@/modules/ai/server/help-rag";
-import { buildImraboPrompt } from "@/modules/ai/server/imrabo-prompt";
+import { buildHelpContext } from "@/features/ai/services/helpRag";
+import { buildImraboPrompt } from "@/features/ai/utils/imraboPrompt";
 
 type ChatMessage = {
     role: "assistant" | "user";
@@ -172,3 +172,4 @@ export async function POST(req: NextRequest) {
         );
     }
 }
+

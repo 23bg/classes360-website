@@ -1,3 +1,4 @@
+export * from './session';
 // Complete auth types definition
 export interface LoginPayload {
     email: string;

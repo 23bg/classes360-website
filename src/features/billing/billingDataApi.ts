@@ -128,6 +128,15 @@ export const billingRepository = {
             },
         }),
 
+    markInvoicePaidById: async (invoiceId: string) =>
+        prisma.billingInvoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: "PAID",
+                paidAt: new Date(),
+            },
+        }),
+
     markOverdueInvoices: async (now: Date) =>
         prisma.billingInvoice.updateMany({
             where: {

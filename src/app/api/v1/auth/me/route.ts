@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSessionUseCase } from "@/modules/auth/application/getSession.useCase";
+import { getSessionUseCase } from "@/features/auth/services/getSession";
 import { createRouteLogger } from "@/lib/api/route-logger";
-import { fail, ok } from "@/modules/auth/api/responses";
+import { fail, ok } from "@/features/auth/api/responses";
 
 export async function GET() {
     const routeLog = createRouteLogger("/api/v1/auth/me#GET");
@@ -37,4 +37,5 @@ export async function GET() {
         },
     }));
 }
+
 

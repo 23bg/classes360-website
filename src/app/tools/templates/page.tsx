@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import ExcelTemplatesTool from "@/modules/tools/components/ExcelTemplatesTool";
+import ExcelTemplatesTool from "@/features/tools/components/ExcelTemplatesTool";
 
 export const metadata: Metadata = {
     title: "Free Excel Templates for Coaching Institutes",
@@ -21,3 +21,4 @@ export default function TemplatesPage() {
         </main>
     );
 }
+

@@ -14,7 +14,7 @@ type TrustBarProps = {
 
 export default function TrustBar({ compact = false }: TrustBarProps) {
     return (
-        <div className={compact ? "w-full border-b bg-background py-6" : "w-full border-b bg-background py-8 md:py-12"}>
+        <div className={compact ? "w-full  bg-background py-6" : "w-full bg-background py-8 md:py-12"}>
             <div className="max-w-7xl mx-auto px-4 md:px-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {trustItems.map(({ icon: Icon, text }) => (

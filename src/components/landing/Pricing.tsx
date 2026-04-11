@@ -1,57 +1,78 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
-import type { PlanType } from "@/config/plans";
-
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-import { Info } from "lucide-react";
-import ComparisonDialog from "@/components/landing/pricing/ComparisonDialog";
+import { CheckCircle2 } from "lucide-react";
 import PlanCard from "@/components/landing/pricing/PlanCard";
-import StrategicComparisonSection from "@/components/landing/pricing/StrategicComparisonSection";
-import { featureGroups, planDefinitions } from "@/components/landing/pricing/pricing-data";
+import PricingComparisonTable from "@/components/landing/pricing/PricingComparisonTable";
+import { planDefinitions } from "@/components/landing/pricing/pricing-data";
 
 export default function Pricing() {
     const t = useTranslations("pricing");
 
     const [yearlyBilling, setYearlyBilling] = useState(false);
-    const [comparisonOpen, setComparisonOpen] = useState(false);
-    const [activePlan, setActivePlan] = useState<PlanType | null>(null);
 
     const billingSuffix = yearlyBilling
         ? t("yearlyPriceSuffix")
         : t("monthlyPriceSuffix");
 
+    const valueStripItems = [
+        t("valueStrip.unlimitedEnquiries"),
+        t("valueStrip.unlimitedStudents"),
+        t("valueStrip.unlimitedCourses"),
+        t("valueStrip.unlimitedBatches"),
+        t("valueStrip.fullSupportIncluded"),
+    ];
+
+    const trustStripItems = [
+        t("trustStrip.item1"),
+        t("trustStrip.item2"),
+        t("trustStrip.item3"),
+        t("trustStrip.item4"),
+    ];
+
+    const footerTrustItems = [
+        t("footerTrust.item1"),
+        t("footerTrust.item2"),
+        t("footerTrust.item3"),
+        t("footerTrust.item4"),
+    ];
+
     return (
-        <section id="pricing" className="border-b bg-muted/40">
+        <section id="pricing" className="bg-muted/40 rounded-xl border-border">
             <div className="mx-auto max-w-7xl px-4 py-14 md:px-6 md:py-20">
+                <div className="mb-8 rounded-xl border bg-background p-3 md:p-4">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {trustStripItems.map((item) => (
+                            <div key={item} className="rounded-md bg-muted/40 px-3 py-2 text-center text-sm font-medium text-foreground">
+                                {item}
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
                 {/* HEADER */}
 
                 <div className="text-center max-w-3xl mx-auto space-y-3">
-                    <h2 className="text-4xl font-semibold">{t("title")}</h2>
-                    <p className="text-muted-foreground">{t("description")}</p>
+                    <h2 className="text-4xl font-semibold">{t("header.headline")}</h2>
+                    <p className="text-muted-foreground">{t("header.subtext")}</p>
                     <p className="text-sm font-medium text-foreground">
-                        {t("positioningLine")}
+                        {t("header.trustLine")}
                     </p>
                 </div>
 
-                <div className="mt-10 text-center text-sm text-muted-foreground">
-                    {t("coreSystemLine")}
-                </div>
-
-                <div className="mt-2 text-center text-sm text-muted-foreground">
-                    {t("whatsAppSenderModesLine")}
+                <div className="mt-8 rounded-xl border bg-background p-4 md:p-5">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                        {valueStripItems.map((item) => (
+                            <div key={item} className="flex items-center gap-2 text-sm">
+                                <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                                <span className="font-medium">{item}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* BILLING TOGGLE */}
@@ -78,17 +99,6 @@ export default function Pricing() {
                     {t("trialBadge")}
                 </p>
 
-                <div className="mt-8 rounded-xl border border-primary/30 bg-primary/10 p-6 text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">ROI</p>
-                    <h3 className="mt-2 text-xl font-semibold">1 admission covers your monthly cost</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Most institutes recover the subscription with one additional conversion.
-                    </p>
-                    <div className="mt-3 inline-flex items-center gap-2">
-                        <FeatureTooltip text="ROI varies by course fee and institute conversion cycle." />
-                    </div>
-                </div>
-
                 {/* PRICING CARDS */}
 
                 <div className="mt-12 grid gap-6 xl:grid-cols-4">
@@ -98,41 +108,24 @@ export default function Pricing() {
                             plan={plan}
                             yearlyBilling={yearlyBilling}
                             billingSuffix={billingSuffix}
-                            featureGroups={featureGroups}
-                            onCompareClick={(planType) => {
-                                setActivePlan(planType);
-                                setComparisonOpen(true);
-                            }}
                         />
                     ))}
                 </div>
 
-                <StrategicComparisonSection />
+                <PricingComparisonTable />
 
-                <ComparisonDialog
-                    open={comparisonOpen}
-                    onOpenChange={setComparisonOpen}
-                    activePlan={activePlan}
-                    featureGroups={featureGroups}
-                />
+                <section className="mt-14 space-y-3">
+                    <h3 className="text-center text-2xl font-semibold">{t("footerTrust.title")}</h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {footerTrustItems.map((item) => (
+                            <div key={item} className="rounded-lg border bg-background p-4 text-sm font-medium">
+                                {item}
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
             </div>
         </section>
-    );
-}
-
-function FeatureTooltip({ text }: { text: string }) {
-    return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 cursor-help text-muted-foreground" />
-                </TooltipTrigger>
-
-                <TooltipContent className="max-w-xs text-sm">
-                    {text}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
     );
 }

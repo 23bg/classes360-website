@@ -1,4 +1,4 @@
-﻿import type React from "react";
+import type React from "react";
 import LandingHeader from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 

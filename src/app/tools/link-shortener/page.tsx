@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import LinkShortenerTool from "@/modules/tools/components/LinkShortenerTool";
+import LinkShortenerTool from "@/features/tools/components/LinkShortenerTool";
 
 export const metadata: Metadata = {
     title: "Free Link Shortener for Coaching Institutes",
@@ -21,3 +21,4 @@ export default function LinkShortenerPage() {
         </main>
     );
 }
+

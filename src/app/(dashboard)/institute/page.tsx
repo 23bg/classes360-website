@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import InstituteProfileView from "@/modules/institute/components/InstituteProfileView";
-import InstituteProfileForm, { InstituteFormValues as InstituteFormState } from "@/modules/institute/forms/InstituteProfileForm";
+import InstituteProfileView from "@/features/institute/components/InstituteProfileView";
+import InstituteProfileForm, { InstituteFormValues as InstituteFormState } from "@/features/institute/components/InstituteProfileForm";
 import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 import { fetchInstituteSummary } from "@/features/appInstitute/appInstituteSlice";
 

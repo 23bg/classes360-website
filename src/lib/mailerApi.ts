@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import { env } from "@/lib/config/env";
 import { AppError } from "@/lib/utils/error";
 import { logger } from "@/lib/utils/logger";
-import { OtpPurpose } from "@/modules/auth/domain/otpPurpose";
+import { OtpPurpose } from "@/features/auth/constants/otpPurpose";
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -49,6 +49,7 @@ const getTransporter = (): nodemailer.Transporter => {
 
 const purposeLabel: Record<OtpPurpose, string> = {
     [OtpPurpose.VERIFY_EMAIL]: "verify your email",
+    [OtpPurpose.LOGIN]: "sign in",
     [OtpPurpose.MFA]: "complete sign in",
     [OtpPurpose.RESET_PASSWORD]: "reset your password",
 };
@@ -148,3 +149,4 @@ export const mailerService = {
         }
     },
 };
+

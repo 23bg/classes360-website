@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import InstituteScoreTool from "@/modules/tools/components/InstituteScoreTool";
+import InstituteScoreTool from "@/features/tools/components/InstituteScoreTool";
 
 export const metadata: Metadata = {
     title: "Institute Digital Score",
@@ -21,3 +21,4 @@ export default function InstituteScorePage() {
         </main>
     );
 }
+

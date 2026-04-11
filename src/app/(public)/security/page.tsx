@@ -85,7 +85,7 @@ const practices = [
 export default function SecurityPage() {
     return (
         <main className="bg-muted/30">
-            <section className="border-b bg-background">
+            <section className=" bg-background">
                 <div className="mx-auto w-full max-w-6xl px-4 py-16 md:px-6 lg:py-24">
                     <div className="max-w-3xl space-y-4">
                         <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">

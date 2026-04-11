@@ -1,4 +1,4 @@
-﻿type Bucket = {
+type Bucket = {
     count: number;
     resetAt: number;
 };

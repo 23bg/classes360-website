@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { clientLogger } from '@/lib/clientLogger'
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
   clientLogger.error('global_error', { message: error.message, stack: error.stack })

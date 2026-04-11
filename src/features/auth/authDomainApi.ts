@@ -6,8 +6,8 @@ import { enforceRateLimit } from "@/lib/utils/rateLimit";
 import { otpRepository } from "@/features/auth/otpDataApi";
 import { userRepository } from "@/features/auth/userDataApi";
 import { mailerService } from "@/lib/mailerApi";
-import { issueSessionUseCase } from "@/modules/auth/application/issueSession.useCase";
-import { OtpPurpose } from "@/modules/auth/domain/otpPurpose";
+import { issueSession } from "@/features/auth/services/issueSession";
+import { OtpPurpose } from "@/features/auth/constants/otpPurpose";
 import crypto from "crypto";
 
 export type RequestOtpInput = {
@@ -215,7 +215,7 @@ export const authService = {
             return { mfaRequired: true };
         }
 
-        const issued = await issueSessionUseCase({ userId: user.id });
+        const issued = await issueSession({ userId: user.id });
         if (!issued) {
             throw new AppError("Unable to create session", 500, "SESSION_ISSUE_FAILED");
         }
@@ -248,7 +248,7 @@ export const authService = {
 
         await otpRepository.consumeOtp(email);
 
-        const issued = await issueSessionUseCase({ userId: user.id });
+        const issued = await issueSession({ userId: user.id });
         if (!issued) {
             throw new AppError("Unable to create session", 500, "SESSION_ISSUE_FAILED");
         }

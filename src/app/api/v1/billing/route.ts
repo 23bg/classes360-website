@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSessionToken, readSessionFromCookie, setSessionCookie } from "@/lib/auth/auth";
 import { canManageBilling } from "@/lib/auth/permissions";
-import { BillingInterval, subscriptionService } from "@/features/subscription/subscriptionApi";
-import { billingService } from "@/features/billing/billingApi";
+import { BillingInterval } from "@/features/subscription/subscriptionApi";
+import { billingService } from "@/features/billing/services/billing.service";
 import { toAppError } from "@/lib/utils/error";
 import { isPlanType } from "@/config/plans";
-import { env } from "@/lib/config/env";
 
 export async function GET() {
     try {
@@ -17,7 +16,7 @@ export async function GET() {
             );
         }
 
-        const data = await billingService.getBillingDashboard(session.instituteId);
+        const data = await billingService.getBillingDashboard(session.instituteId, session.email);
 
         if (
             session.subscriptionStatus &&
@@ -58,8 +57,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const body = (await req.json().catch(() => ({}))) as { action?: string; planType?: string; interval?: string };
-        const typedBody = body as { action?: string; planType?: string; interval?: string; invoiceId?: string };
+        const body = (await req.json().catch(() => ({}))) as {
+            action?: string;
+            planType?: string;
+            interval?: string;
+            invoiceId?: string;
+            provider?: "RAZORPAY" | "STRIPE";
+        };
+        const typedBody = body as { action?: string; planType?: string; interval?: string; invoiceId?: string; provider?: "RAZORPAY" | "STRIPE" };
         if (body.action === "generate-invoice") {
             const invoice = await billingService.createOrUpdateClosedMonthInvoice(session.instituteId);
             return NextResponse.json({ success: true, data: invoice });
@@ -73,8 +78,22 @@ export async function POST(req: NextRequest) {
                 );
             }
 
-            const data = await billingService.attemptAutopayForInvoice(typedBody.invoiceId);
-            return NextResponse.json({ success: true, data });
+            const data = await billingService.createInvoicePaymentSession({
+                instituteId: session.instituteId,
+                userId: session.userId,
+                email: session.email,
+                invoiceId: typedBody.invoiceId,
+                provider: typedBody.provider ?? null,
+            });
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    ...data,
+                    subscriptionId: data.providerSubscriptionId ?? null,
+                    key: data.publishableKey ?? null,
+                },
+            });
         }
 
         if (body.action === "run-dunning") {
@@ -101,15 +120,20 @@ export async function POST(req: NextRequest) {
                 ? body.interval
                 : "MONTHLY";
 
-        const created = await subscriptionService.createRazorpaySubscription(session.instituteId, body.planType, interval);
+        const created = await billingService.createCheckoutSession({
+            instituteId: session.instituteId,
+            userId: session.userId,
+            email: session.email,
+            planType: (body.planType ?? "STARTER") as "STARTER" | "TEAM" | "GROWTH" | "SCALE",
+            interval,
+            provider: typedBody.provider ?? null,
+        });
         return NextResponse.json({
             success: true,
             data: {
-                subscriptionId: created.subscriptionId,
-                key: env.RAZORPAY_KEY_ID,
-                planType: created.planType,
-                interval: created.interval,
-                reused: created.reused,
+                ...created,
+                subscriptionId: created.providerSubscriptionId ?? null,
+                key: created.publishableKey ?? null,
             },
         });
     } catch (error) {

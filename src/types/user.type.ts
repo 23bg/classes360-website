@@ -1,4 +1,4 @@
-﻿import { UserStatus, BusinessRole, BusinessRoleAssignment, AdminRole } from './prisma.types';
+import { UserStatus, BusinessRole, BusinessRoleAssignment, AdminRole } from './prisma.types';
 
 export interface User {
     id: string;

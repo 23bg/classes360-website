@@ -13,7 +13,7 @@ import {
     InstitutePageShell,
     LocationBlock,
     StudentPortalCard,
-} from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+} from "@/features/institute/components/public-site/InstituteWebsiteSections";
 
 type InstituteSlugPageProps = {
     params: Promise<{ slug: string }>;

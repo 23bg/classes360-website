@@ -1,4 +1,4 @@
-﻿import { PaymentStatus } from './prisma.types';
+import { PaymentStatus } from './prisma.types';
 
 export interface Payment {
     id: string;

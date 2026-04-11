@@ -1,4 +1,4 @@
-﻿import { logger, serializeError } from "@/lib/logger";
+import { logger, serializeError } from "@/lib/logger";
 
 export class AppError extends Error {
     public readonly statusCode: number;

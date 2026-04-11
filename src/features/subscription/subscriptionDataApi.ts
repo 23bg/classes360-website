@@ -21,6 +21,7 @@ export const subscriptionRepository = {
             where: { instituteId },
             create: {
                 instituteId,
+                billingProvider: null,
                 planType: mapPlanTypeToDb(planType),
                 // 0 is stored as the sentinel value for "unlimited" (null in PlanConfig)
                 userLimit: PLAN_CONFIG[planType].userLimit ?? 0,
@@ -43,9 +44,14 @@ export const subscriptionRepository = {
     updateByInstituteId: async (
         instituteId: string,
         payload: {
-            status?: "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+            status?: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
             currentPeriodEnd?: Date | null;
+            currentPeriodStart?: Date | null;
             razorpaySubId?: string | null;
+            providerSubscriptionId?: string | null;
+            providerPaymentId?: string | null;
+            billingProvider?: "RAZORPAY" | "STRIPE" | null;
+            currency?: string;
             trialEndsAt?: Date | null;
             planType?: PlanType;
             userLimit?: number;
@@ -67,37 +73,56 @@ export const subscriptionRepository = {
         razorpaySubId: string,
         instituteId: string,
         payload: {
-            status?: "TRIAL" | "ACTIVE" | "INACTIVE" | "CANCELLED";
+            status?: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
+            currentPeriodStart?: Date | null;
             currentPeriodEnd?: Date | null;
+            currentPeriodStart?: Date | null;
             trialEndsAt?: Date | null;
+            billingProvider?: "RAZORPAY" | "STRIPE" | null;
+            providerSubscriptionId?: string | null;
+            providerPaymentId?: string | null;
+            currency?: string;
             planType?: PlanType;
             userLimit?: number;
             billingInterval?: "MONTHLY" | "YEARLY";
             lastChargedAt?: Date | null;
             autopayEnabled?: boolean;
             paymentMethodAddedAt?: Date | null;
+            billingProvider?: "RAZORPAY" | "STRIPE" | null;
+            providerSubscriptionId?: string | null;
+            providerPaymentId?: string | null;
+            currency?: string;
         }
     ) =>
         prisma.subscription.upsert({
             where: { instituteId },
             create: {
                 instituteId,
+                billingProvider: payload.billingProvider ?? null,
                 razorpaySubId,
+                providerSubscriptionId: payload.providerSubscriptionId ?? razorpaySubId,
+                providerPaymentId: payload.providerPaymentId ?? null,
                 planType: mapPlanTypeToDb(payload.planType ?? DEFAULT_PLAN_TYPE),
                 // 0 = unlimited sentinel
                 userLimit: payload.userLimit ?? PLAN_CONFIG[payload.planType ?? DEFAULT_PLAN_TYPE].userLimit ?? 0,
                 status: payload.status ?? "TRIAL",
                 currentPeriodEnd: payload.currentPeriodEnd,
+                currentPeriodStart: payload.currentPeriodStart,
                 trialEndsAt: payload.trialEndsAt,
                 billingInterval: payload.billingInterval,
                 lastChargedAt: payload.lastChargedAt,
                 autopayEnabled: payload.autopayEnabled ?? false,
                 paymentMethodAddedAt: payload.paymentMethodAddedAt,
+                currency: payload.currency ?? "INR",
             },
             update: {
+                billingProvider: payload.billingProvider ?? undefined,
                 razorpaySubId,
+                providerSubscriptionId: payload.providerSubscriptionId ?? razorpaySubId,
+                providerPaymentId: payload.providerPaymentId ?? undefined,
                 status: payload.status,
                 currentPeriodEnd: payload.currentPeriodEnd,
+                currentPeriodStart: payload.currentPeriodStart,
                 trialEndsAt: payload.trialEndsAt,
                 billingInterval: payload.billingInterval,
                 lastChargedAt: payload.lastChargedAt,
@@ -105,7 +130,28 @@ export const subscriptionRepository = {
                 paymentMethodAddedAt: payload.paymentMethodAddedAt,
                 ...(payload.planType ? { planType: mapPlanTypeToDb(payload.planType) } : {}),
                 userLimit: payload.userLimit,
+                currency: payload.currency,
             },
+        }),
+
+    updateByProviderSubscriptionId: async (
+        providerSubscriptionId: string,
+        payload: {
+            status?: "TRIAL" | "ACTIVE" | "PAST_DUE" | "INACTIVE" | "CANCELLED";
+            currentPeriodEnd?: Date | null;
+            currentPeriodStart?: Date | null;
+            trialEndsAt?: Date | null;
+            lastChargedAt?: Date | null;
+            autopayEnabled?: boolean;
+            paymentMethodAddedAt?: Date | null;
+            billingProvider?: "RAZORPAY" | "STRIPE" | null;
+            providerPaymentId?: string | null;
+            currency?: string;
+        }
+    ) =>
+        prisma.subscription.updateMany({
+            where: { providerSubscriptionId },
+            data: payload,
         }),
 
     updateByRazorpaySubId: async (

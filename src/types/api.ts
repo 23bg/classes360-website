@@ -1,4 +1,4 @@
-﻿export interface AppError {
+export interface AppError {
     message: string;
     // The backend may include other fields like a specific error code or details.
     // Add them here as they are needed.

@@ -1,4 +1,4 @@
-﻿import {
+import {
     Accordion,
     AccordionContent,
     AccordionItem,
@@ -18,7 +18,7 @@ export default function FAQ() {
     ];
 
     return (
-        <section className="w-full border-b ">
+        <section className="w-full ">
             <div className="mx-auto w-full max-w-4xl px-4 py-14 md:px-6">
                 <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h2>
                 <Accordion type="single" collapsible className="mt-6 w-full">

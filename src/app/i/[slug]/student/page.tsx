@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { buildInstituteMetadata } from "@/app/i/[slug]/_lib/metadata";
 import { getPublicInstitute } from "@/app/i/[slug]/_lib/public-institute";
-import { InstitutePageShell, StudentPortalCard } from "@/modules/institute/components/public-site/InstituteWebsiteSections";
+import { InstitutePageShell, StudentPortalCard } from "@/features/institute/components/public-site/InstituteWebsiteSections";
 
 type InstituteStudentPageProps = {
     params: Promise<{ slug: string }>;

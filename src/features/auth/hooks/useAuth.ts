@@ -1,4 +1,4 @@
-﻿// import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
+// import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 // import { loginUser, signupUser, verifyOtp } from "../slices/authSlice";
 
 // export const useAuth = () => {

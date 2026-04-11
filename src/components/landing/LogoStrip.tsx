@@ -25,7 +25,7 @@ export default function LogoStrip({
     compact = false,
 }: LogoStripProps) {
     return (
-        <div className={cn("w-full border-b bg-card", compact ? "py-6" : "py-8 md:py-12 lg:py-16")}>
+        <div className={cn("w-full  bg-card", compact ? "py-6" : "py-8 md:py-12 lg:py-16")}>
             <div className="max-w-7xl mx-auto px-4 md:px-6">
                 <div className="max-w-2xl mx-auto text-center">
                     <h2 className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">{title}</h2>

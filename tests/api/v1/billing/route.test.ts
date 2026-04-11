@@ -5,8 +5,10 @@ import { GET, POST } from "@/app/api/v1/billing/route";
 const { mockReadSessionFromCookie, mockSubscriptionService } = vi.hoisted(() => ({
     mockReadSessionFromCookie: vi.fn(),
     mockSubscriptionService: {
+        getBillingDashboard: vi.fn(),
         getBillingSummary: vi.fn(),
-        createRazorpaySubscription: vi.fn(),
+        createCheckoutSession: vi.fn(),
+        createInvoicePaymentSession: vi.fn(),
     },
 }));
 
@@ -14,8 +16,8 @@ vi.mock("@/lib/auth/auth", () => ({
     readSessionFromCookie: mockReadSessionFromCookie,
 }));
 
-vi.mock("@/features/subscription/services/subscription.service", () => ({
-    subscriptionService: mockSubscriptionService,
+vi.mock("@/features/billing/services/billing.service", () => ({
+    billingService: mockSubscriptionService,
 }));
 
 describe("/api/v1/billing", () => {
@@ -35,12 +37,30 @@ describe("/api/v1/billing", () => {
 
     it("GET returns billing summary", async () => {
         mockReadSessionFromCookie.mockResolvedValue({ instituteId: "inst1" });
-        mockSubscriptionService.getBillingSummary.mockResolvedValue({
+        mockSubscriptionService.getBillingDashboard.mockResolvedValue({
+            billingContact: { name: "Inst 1", email: "owner@inst1.test" },
+            institute: { id: "inst1", name: "Inst 1", country: "India", countryCode: "IN" },
+            checkout: {
+                provider: "RAZORPAY",
+                region: "IN",
+                regionLabel: "India",
+                country: "India",
+                recommendedProvider: "RAZORPAY",
+                allowedProviders: ["RAZORPAY"],
+                currency: "INR",
+                taxRate: 0.18,
+            },
+            summary: {
             planType: "STARTER",
             status: "TRIAL",
             usersUsed: 1,
             userLimit: 1,
             trialEndsAt: new Date().toISOString(),
+            },
+            usage: { planType: "STARTER", alertsUsed: 0, alertsIncluded: 0, extraAlerts: 0, extraAlertRate: 0, estimatedUsageCost: 0 },
+            policy: { hasOverdue: false, alertsEnabled: true, accessRestricted: false },
+            sender: { mode: "CLASSES360_SHARED", connectedNumber: null, status: "DISCONNECTED" },
+            invoices: [],
         });
 
         const response = await GET();
@@ -48,7 +68,7 @@ describe("/api/v1/billing", () => {
 
         expect(response.status).toBe(200);
         expect(body.success).toBe(true);
-        expect(mockSubscriptionService.getBillingSummary).toHaveBeenCalledWith("inst1");
+        expect(mockSubscriptionService.getBillingDashboard).toHaveBeenCalledWith("inst1", undefined);
     });
 
     it("POST rejects invalid action", async () => {
@@ -87,12 +107,26 @@ describe("/api/v1/billing", () => {
 
     it("POST creates subscription for valid action", async () => {
         mockReadSessionFromCookie.mockResolvedValue({ instituteId: "inst1", role: "OWNER" });
-        mockSubscriptionService.createRazorpaySubscription.mockResolvedValue({
-            subscriptionId: "sub_123",
-            key: "rzp_test_123",
+        mockSubscriptionService.createCheckoutSession.mockResolvedValue({
+            provider: "RAZORPAY",
+            region: "IN",
+            checkoutMode: "subscription",
             planType: "GROWTH",
             interval: "MONTHLY",
-            reused: false,
+            currency: "INR",
+            amount: 1999,
+            taxes: 359.82,
+            totalAmount: 2358.82,
+            providerSubscriptionId: "sub_123",
+            checkoutSessionId: null,
+            providerPaymentId: null,
+            providerPaymentLinkId: null,
+            checkoutUrl: null,
+            clientSecret: null,
+            publishableKey: "rzp_test_123",
+            paymentMethods: ["CARD", "UPI", "NETBANKING"],
+            redirectRequired: false,
+            regionLabel: "India",
         });
 
         const request = new Request("http://localhost/api/v1/billing", {
@@ -106,12 +140,19 @@ describe("/api/v1/billing", () => {
 
         expect(response.status).toBe(200);
         expect(body.success).toBe(true);
-        expect(mockSubscriptionService.createRazorpaySubscription).toHaveBeenCalledWith("inst1", "GROWTH", "MONTHLY");
+        expect(mockSubscriptionService.createCheckoutSession).toHaveBeenCalledWith({
+            instituteId: "inst1",
+            userId: undefined,
+            email: undefined,
+            planType: "GROWTH",
+            interval: "MONTHLY",
+            provider: null,
+        });
     });
 
     it("POST returns service failure status", async () => {
         mockReadSessionFromCookie.mockResolvedValue({ instituteId: "inst1", role: "OWNER" });
-        mockSubscriptionService.createRazorpaySubscription.mockRejectedValue(
+        mockSubscriptionService.createCheckoutSession.mockRejectedValue(
             new AppError("Provider down", 503, "PROVIDER_DOWN")
         );
 

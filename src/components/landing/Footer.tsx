@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { FOOTER_GROUPS } from "@/constants/navigation";
 import { Linkedin, Twitter, MessageCircle, MapPin } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -9,7 +9,7 @@ export default function Footer() {
     const t = useTranslations("footer");
 
     return (
-        <footer className="w-full border-t bg-background">
+        <footer className="w-full bg-background">
             <div className="max-w-7xl mx-auto p-6 space-y-6">
                 <Card className="border-border bg-card">
                     <CardContent className="p-6">

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { fail } from "@/modules/auth/api/responses";
-import { refreshTokenController } from "@/modules/auth/api/refreshToken.controller";
-import { refreshSessionUseCase } from "@/modules/auth/application/refreshSession.useCase";
+import { fail } from "@/features/auth/api/responses";
+import { refreshTokenController } from "@/features/auth/api/refreshToken.controller";
+import { refreshSessionUseCase } from "@/features/auth/services/refreshSession";
 
 /**
  * POST /api/v1/auth/refresh
@@ -38,3 +38,4 @@ export async function GET(req: Request) {
         return NextResponse.redirect(loginUrl);
     }
 }
+

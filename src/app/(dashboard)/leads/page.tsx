@@ -421,7 +421,7 @@ export default function LeadsPage() {
                                     <p className="text-xs text-muted-foreground">No activity history available.</p>
                                 ) : (
                                     timeline.map((item, index) => (
-                                        <div key={`${item.activityType}-${item.createdAt}-${index}`} className="text-xs border-b last:border-0 pb-2 last:pb-0">
+                                        <div key={`${item.activityType}-${item.createdAt}-${index}`} className="text-xs  last:border-0 pb-2 last:pb-0">
                                             <p className="font-medium">{item.title}</p>
                                             {item.description ? <p className="text-muted-foreground">{item.description}</p> : null}
                                             <p className="text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p>

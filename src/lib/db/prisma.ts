@@ -1,4 +1,4 @@
-﻿import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { assertServerEnv } from "@/lib/config/env";
 
 assertServerEnv();
