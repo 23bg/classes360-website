@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
         return [
             {
                 source: "/sitemap-dynamic-:id.xml",
-                destination: "/sitemap-dynamic-[id].xml?id=:id",
+                destination: "/sitemap-dynamic/:id",
             },
         ];
     },

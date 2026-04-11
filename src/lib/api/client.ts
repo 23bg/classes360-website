@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+ import axios, { AxiosInstance } from 'axios';
 
 const DEFAULT_BASE_URL = '/api/v1';
 

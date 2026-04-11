@@ -1,20 +1,33 @@
-import { BASE_URL } from "@/lib/seo/sitemap/constants";
 import {
-  getDynamicSitemapChunkCount,
-  getSitemapIndexUrls,
+  getDynamicSitemapEntries,
+  getStaticSitemapEntries,
 } from "@/lib/seo/sitemap/data";
-import { buildSitemapIndexXml, xmlResponse } from "@/lib/seo/sitemap/xml";
+import type { SitemapUrlEntry } from "@/lib/seo/sitemap/types";
+import { buildUrlsetXml, xmlResponse } from "@/lib/seo/sitemap/xml";
+
+function mergeUniqueEntries(entries: SitemapUrlEntry[]): SitemapUrlEntry[] {
+  const byLoc = new Map<string, SitemapUrlEntry>();
+
+  for (const entry of entries) {
+    if (!entry?.loc) continue;
+    byLoc.set(entry.loc, entry);
+  }
+
+  return [...byLoc.values()];
+}
 
 export async function GET(): Promise<Response> {
-  const nowIso = new Date().toISOString();
-
   try {
-    const chunkCount = await getDynamicSitemapChunkCount();
-    const sitemapUrls = getSitemapIndexUrls(chunkCount);
-    const xml = buildSitemapIndexXml(sitemapUrls, nowIso);
+    const [staticEntries, dynamicEntries] = await Promise.all([
+      Promise.resolve(getStaticSitemapEntries()),
+      getDynamicSitemapEntries(),
+    ]);
+
+    const mergedEntries = mergeUniqueEntries([...staticEntries, ...dynamicEntries]);
+    const xml = buildUrlsetXml(mergedEntries);
     return xmlResponse(xml);
   } catch {
-    const fallbackXml = buildSitemapIndexXml([`${BASE_URL}/sitemap-static.xml`], nowIso);
+    const fallbackXml = buildUrlsetXml(getStaticSitemapEntries());
     return xmlResponse(fallbackXml);
   }
 }
