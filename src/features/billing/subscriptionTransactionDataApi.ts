@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
+import type { BillingProvider } from "@prisma/client";
 
 export const subscriptionTransactionRepository = {
     create: async (input: {
         instituteId: string;
         userId?: string | null;
-        provider: "RAZORPAY" | "STRIPE";
+        provider: BillingProvider;
         providerPaymentId?: string | null;
         providerSubscriptionId?: string | null;
         providerEventId?: string | null;
@@ -36,7 +37,7 @@ export const subscriptionTransactionRepository = {
             },
         }),
 
-    findByProviderPaymentId: async (provider: "RAZORPAY" | "STRIPE", providerPaymentId: string) =>
+    findByProviderPaymentId: async (provider: BillingProvider, providerPaymentId: string) =>
         prisma.subscriptionTransaction.findFirst({
             where: {
                 provider,
@@ -44,7 +45,7 @@ export const subscriptionTransactionRepository = {
             },
         }),
 
-    findByProviderSubscriptionId: async (provider: "RAZORPAY" | "STRIPE", providerSubscriptionId: string) =>
+    findByProviderSubscriptionId: async (provider: BillingProvider, providerSubscriptionId: string) =>
         prisma.subscriptionTransaction.findFirst({
             where: {
                 provider,
