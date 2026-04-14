@@ -3,6 +3,7 @@ import { createSessionToken, readSessionFromCookie, setSessionCookie } from "@/l
 import { canWriteInstituteData } from "@/lib/auth/permissions";
 import { instituteService } from "@/features/institute/instituteApi";
 import { toAppError } from "@/lib/utils/error";
+import { instituteOnboardingSchema } from "@/validations/institute.validation";
 
 export async function POST(req: NextRequest) {
     try {
@@ -21,38 +22,11 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const body = (await req.json()) as {
-            name: string;
-            phone: string;
-            address: {
-                addressLine1?: string;
-                addressLine2?: string;
-                city?: string;
-                state?: string;
-                region?: string;
-                postalCode?: string;
-                country?: string;
-                countryCode?: string;
-            } | string;
-            addressLine1?: string;
-            addressLine2?: string;
-            city?: string;
-            state?: string;
-            region?: string;
-            postalCode?: string;
-            country?: string;
-            countryCode?: string;
-            whatsapp?: string;
-            description?: string;
-            website?: string;
-            facebook?: string;
-            instagram?: string;
-            youtube?: string;
-            linkedin?: string;
-        };
+        const raw = await req.json();
+        const body = instituteOnboardingSchema.parse(raw);
 
         const institute = await instituteService.getInstitute(session.userId);
-        const data = await instituteService.completeOnboarding(institute.id, body);
+        const data = await instituteService.completeOnboarding(institute.id, body as any);
 
         const nextToken = createSessionToken({
             ...session,

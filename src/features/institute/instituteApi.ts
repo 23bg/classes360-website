@@ -1,11 +1,14 @@
 import { z } from "zod";
 import dns from "node:dns/promises";
 import { instituteRepository } from "@/features/institute/instituteDataApi";
-import { userRepository } from "@/features/auth/userDataApi";
+import { wrapPrisma } from "@/lib/db/prismaErrorMapper";
+import { getCache, setCache, delCache } from "@/lib/cache/inMemory";
+import { userService } from "@/features/user/userService";
 import { AppError } from "@/lib/utils/error";
-import { prisma } from "@/lib/db/prisma";
 import { normalizePhone } from "@/lib/utils/phone";
 import { eventDispatcherService } from "@/lib/notifications/event-dispatcher.service";
+import { logger } from "@/lib/utils/logger";
+import * as instituteDomainService from "@/features/institute/instituteDomainService";
 
 const phoneSchema = z
     .string()
@@ -239,31 +242,11 @@ const tempSlugFromIdentity = (identity: string): string => {
 };
 
 const ensureInstituteForUser = async (userId: string) => {
-    const user = await userRepository.findById(userId);
-    if (!user) {
-        throw new AppError("User not found", 404, "USER_NOT_FOUND");
-    }
-
-    if (user.instituteId) {
-        const existingInstitute = await instituteRepository.findById(user.instituteId);
-        if (existingInstitute) {
-            return existingInstitute;
-        }
-    }
-
-    const createdInstitute = await instituteRepository.create({
-        name: null,
-        slug: tempSlugFromIdentity(user.email || user.id),
-        isOnboarded: false,
-    });
-
-    await prisma.user.update({
-        where: { id: user.id },
-        data: { instituteId: createdInstitute.id },
-    });
-
-    return createdInstitute;
+    return userService.assignInstituteIfMissing(userId);
 };
+
+// Use `wrapPrisma` when calling repository write methods to map Prisma errors to AppError.
+
 
 const sendOnboardingWhatsAppMessage = async (institute: {
     id: string;
@@ -286,15 +269,17 @@ const sendOnboardingWhatsAppMessage = async (institute: {
         return;
     }
 
-    await eventDispatcherService.dispatch({
-        event: "INSTITUTE_ONBOARDING_COMPLETED",
-        instituteId: institute.id,
-        whatsappPhoneNumber: normalizedDestination,
-        message: `Onboarding completed for ${institute.name || "your institute"}. Your workspace is ready to use.`,
-        link: "/overview",
-    });
+    void eventDispatcherService
+        .dispatch({
+            event: "INSTITUTE_ONBOARDING_COMPLETED",
+            instituteId: institute.id,
+            whatsappPhoneNumber: normalizedDestination,
+            message: `Onboarding completed for ${institute.name || "your institute"}. Your workspace is ready to use.`,
+            link: "/overview",
+        })
+        .catch((err) => logger.error({ event: "institute_onboarding_whatsapp_failed", instituteId: institute.id, error: err }));
 
-    await instituteRepository.updateById(institute.id, { whatsappOnboardingSent: true });
+    await wrapPrisma(() => instituteRepository.updateById(institute.id, { whatsappOnboardingSent: true } as any));
 };
 
 export const instituteService = {
@@ -404,12 +389,8 @@ export const instituteService = {
                 ? normalizeSlug(payload.name)
                 : undefined;
 
-        if (nextSlug) {
-            const isTaken = await instituteRepository.isSlugTaken(nextSlug, instituteId);
-            if (isTaken) {
-                throw new AppError("Slug already in use", 409, "SLUG_ALREADY_EXISTS");
-            }
-        }
+        // Do not pre-check slug uniqueness (race-prone). Attempt update directly and
+        // rely on Prisma unique constraint mapping to return a friendly error.
 
         const current = await instituteRepository.findById(instituteId);
         if (!current) {
@@ -428,7 +409,8 @@ export const instituteService = {
             hasText(nextAddress?.state) &&
             hasText(nextAddress?.addressLine1);
 
-        const updated = await instituteRepository.updateById(instituteId, {
+        const updated = await wrapPrisma(() =>
+            instituteRepository.updateById(instituteId, {
             name: payload.name,
             slug: nextSlug,
             description: payload.description || null,
@@ -452,14 +434,27 @@ export const instituteService = {
             youtubeUrl: youtubeUrl || null,
             linkedinUrl: linkedinUrl || null,
             isOnboarded,
-        });
+            })
+        );
 
-        await eventDispatcherService.dispatch({
-            event: "INSTITUTE_PROFILE_UPDATED",
-            instituteId,
-            message: `Institute profile updated successfully for ${updated.name || "your institute"}.`,
-            link: "/institute",
-        });
+        // Invalidate cached public pages for old and new slugs
+        try {
+            const oldKey = current?.slug ? `institute:public:${current.slug}` : null;
+            const newKey = updated?.slug ? `institute:public:${updated.slug}` : null;
+            if (oldKey) delCache(oldKey);
+            if (newKey && newKey !== oldKey) delCache(newKey);
+        } catch (err) {
+            logger.error({ event: "cache_invalidate_failed", instituteId, error: err });
+        }
+
+        void eventDispatcherService
+            .dispatch({
+                event: "INSTITUTE_PROFILE_UPDATED",
+                instituteId,
+                message: `Institute profile updated successfully for ${updated.name || "your institute"}.`,
+                link: "/institute",
+            })
+            .catch((err) => logger.error({ event: "institute_profile_update_notify_failed", instituteId, error: err }));
 
         return withSocialLinks(updated);
     },
@@ -485,101 +480,15 @@ export const instituteService = {
     },
 
     async saveCustomDomain(instituteId: string, customDomain: string, surface = "portal") {
-        const parsed = domainSchema.parse(customDomain);
-        const normalized = (parsed || "").trim().toLowerCase();
-        if (!normalized) {
-            throw new AppError("Custom domain is required", 400, "CUSTOM_DOMAIN_REQUIRED");
-        }
-
-        const existing = await instituteRepository.findByCustomDomain(normalized);
-        if (existing && existing.id !== instituteId) {
-            throw new AppError("Domain already in use by another institute", 409, "DOMAIN_ALREADY_IN_USE");
-        }
-
-        await instituteRepository.updateById(instituteId, {
-            customDomain: normalized,
-            domainVerified: false,
-            domainStatus: "PENDING",
-        });
-
-        await instituteRepository.upsertDomainRecord({
-            instituteId,
-            host: normalized,
-            surface,
-            status: "PENDING",
-            active: false,
-        });
-
-        return this.getDomainSettings(instituteId);
+        return await instituteDomainService.saveCustomDomain(instituteId, customDomain, surface);
     },
 
     async verifyCustomDomain(instituteId: string, customDomain?: string) {
-        const institute = await instituteRepository.findById(instituteId);
-        if (!institute) {
-            throw new AppError("Institute not found", 404, "INSTITUTE_NOT_FOUND");
-        }
-
-        const targetDomain = (customDomain || institute.customDomain || "").trim().toLowerCase();
-        if (!targetDomain) {
-            throw new AppError("No custom domain configured", 400, "CUSTOM_DOMAIN_REQUIRED");
-        }
-
-        const cnameRecords = await dns.resolveCname(targetDomain).catch(() => [] as string[]);
-        const isVerified = cnameRecords.some((record) => record.toLowerCase().includes("vercel-dns.com"));
-
-        await instituteRepository.updateById(instituteId, {
-            customDomain: targetDomain,
-            domainVerified: isVerified,
-            domainStatus: isVerified ? "VERIFIED" : "FAILED",
-        });
-
-        await instituteRepository.upsertDomainRecord({
-            instituteId,
-            host: targetDomain,
-            surface: "portal",
-            status: isVerified ? "VERIFIED" : "FAILED",
-            active: isVerified,
-        });
-
-        return {
-            verified: isVerified,
-            host: targetDomain,
-            cnameRecords,
-            nextStep: isVerified
-                ? "Domain verified. Attach this domain in Vercel project settings and set status ACTIVE."
-                : "DNS record not verified yet. Ensure CNAME points to cname.vercel-dns.com and retry.",
-        };
+        return await instituteDomainService.verifyCustomDomain(instituteId, customDomain);
     },
 
     async activateCustomDomain(instituteId: string, customDomain?: string) {
-        const institute = await instituteRepository.findById(instituteId);
-        if (!institute) {
-            throw new AppError("Institute not found", 404, "INSTITUTE_NOT_FOUND");
-        }
-
-        const targetDomain = (customDomain || institute.customDomain || "").trim().toLowerCase();
-        if (!targetDomain) {
-            throw new AppError("No custom domain configured", 400, "CUSTOM_DOMAIN_REQUIRED");
-        }
-
-        if (!institute.domainVerified) {
-            throw new AppError("Domain must be verified before activation", 400, "DOMAIN_NOT_VERIFIED");
-        }
-
-        await instituteRepository.updateById(instituteId, {
-            customDomain: targetDomain,
-            domainStatus: "ACTIVE",
-        });
-
-        await instituteRepository.upsertDomainRecord({
-            instituteId,
-            host: targetDomain,
-            surface: "portal",
-            status: "ACTIVE",
-            active: true,
-        });
-
-        return this.getDomainSettings(instituteId);
+        return await instituteDomainService.activateCustomDomain(instituteId, customDomain);
     },
 
     async getByHost(hostname: string) {
@@ -588,7 +497,7 @@ export const instituteService = {
         if (byDomain?.slug) return this.getPublicPage(byDomain.slug);
 
         if (normalizedHost.endsWith(".classes360.online")) {
-            const sub = normalizedHost.replace(/\.classes360\.in$/, "");
+            const sub = normalizedHost.slice(0, -".classes360.online".length);
             if (sub && !["portal", "student", "www", "api"].includes(sub)) {
                 return this.getPublicPage(sub);
             }
@@ -655,34 +564,32 @@ export const instituteService = {
         socialUrls.forEach((url) => urlSchema.parse(url));
 
         const nextSlug = normalizeSlug(payload.name);
-        const isTaken = await instituteRepository.isSlugTaken(nextSlug, instituteId);
-        if (isTaken) {
-            throw new AppError("Slug already in use", 409, "SLUG_ALREADY_EXISTS");
-        }
 
-        const updated = await instituteRepository.updateById(instituteId, {
-            name: payload.name.trim(),
-            slug: nextSlug,
-            phone: normalizedPhone,
-            whatsapp: normalizedWhatsapp || null,
-            address: {
-                addressLine1: incomingAddress.addressLine1?.trim() || null,
-                addressLine2: incomingAddress.addressLine2?.trim() || null,
-                city: incomingAddress.city?.trim() || null,
-                state: incomingAddress.state?.trim() || null,
-                region: incomingAddress.region?.trim() || null,
-                postalCode: incomingAddress.postalCode?.trim() || null,
-                country: incomingAddress.country?.trim() || "India",
-                countryCode: incomingAddress.countryCode?.trim() || null,
-            },
-            description: payload.description?.trim() || null,
-            websiteUrl: payload.website?.trim() || null,
-            facebookUrl: payload.facebook?.trim() || null,
-            instagramUrl: payload.instagram?.trim() || null,
-            youtubeUrl: payload.youtube?.trim() || null,
-            linkedinUrl: payload.linkedin?.trim() || null,
-            isOnboarded: true,
-        });
+        const updated = await wrapPrisma(() =>
+            instituteRepository.updateById(instituteId, {
+                name: payload.name.trim(),
+                slug: nextSlug,
+                phone: normalizedPhone,
+                whatsapp: normalizedWhatsapp || null,
+                address: {
+                    addressLine1: incomingAddress.addressLine1?.trim() || null,
+                    addressLine2: incomingAddress.addressLine2?.trim() || null,
+                    city: incomingAddress.city?.trim() || null,
+                    state: incomingAddress.state?.trim() || null,
+                    region: incomingAddress.region?.trim() || null,
+                    postalCode: incomingAddress.postalCode?.trim() || null,
+                    country: incomingAddress.country?.trim() || "India",
+                    countryCode: incomingAddress.countryCode?.trim() || null,
+                },
+                description: payload.description?.trim() || null,
+                websiteUrl: payload.website?.trim() || null,
+                facebookUrl: payload.facebook?.trim() || null,
+                instagramUrl: payload.instagram?.trim() || null,
+                youtubeUrl: payload.youtube?.trim() || null,
+                linkedinUrl: payload.linkedin?.trim() || null,
+                isOnboarded: true,
+            } as any)
+        );
 
         await sendOnboardingWhatsAppMessage(updated);
 
@@ -690,51 +597,17 @@ export const instituteService = {
     },
 
     async getPublicPage(slug: string) {
-        const institute = await instituteRepository.findBySlug(slug);
-        if (!institute) {
+        const cacheKey = `institute:public:${slug}`;
+        const cached = getCache<any>(cacheKey);
+        if (cached) return cached;
+
+        const data = await instituteRepository.getPublicPageData(slug);
+        if (!data || !data.institute) {
             throw new AppError("Institute not found", 404, "INSTITUTE_NOT_FOUND");
         }
-        const [courses, users, batches, studentsCount, announcements] = await Promise.all([
-            prisma.course.findMany({
-                where: { instituteId: institute.id },
-                orderBy: { createdAt: "desc" },
-                select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    banner: true,
-                    duration: true,
-                    defaultFees: true,
-                    description: true,
-                    createdAt: true,
-                },
-            }),
-            prisma.user.findMany({
-                where: { instituteId: institute.id },
-                select: {
-                    id: true,
-                    name: true,
-                    subject: true,
-                    bio: true,
-                },
-            }),
-            prisma.batch.findMany({
-                where: { instituteId: institute.id },
-                orderBy: { createdAt: "desc" },
-                take: 8,
-            }),
-            prisma.student.count({ where: { instituteId: institute.id } }),
-            prisma.studentAnnouncement.findMany({
-                where: { instituteId: institute.id },
-                orderBy: { createdAt: "desc" },
-                take: 25,
-                select: {
-                    title: true,
-                    body: true,
-                    createdAt: true,
-                },
-            }),
-        ]);
+
+        const { institute, courses, users, batches, studentsCount, announcements } = data;
+
         const teachers = users
             .filter((user) => Boolean(user.subject?.trim() || user.bio?.trim()))
             .map((user) => ({
@@ -744,19 +617,16 @@ export const instituteService = {
                 experience: user.bio ?? null,
             }));
 
-        const photos = [
-            institute.heroImage,
-            institute.banner,
-            institute.logo,
-            ...courses.map((course) => course.banner),
-        ].filter((photo): photo is string => Boolean(photo && photo.trim()));
+        const photos = [institute.heroImage, institute.banner, institute.logo, ...courses.map((course) => course.banner)].filter(
+            (photo): photo is string => Boolean(photo && photo.trim())
+        );
 
-        return {
-            ...withSocialLinks(institute),
+        const result = {
+            ...withSocialLinks(institute as any),
             courses,
             teachers,
             batches,
-            announcements: announcements.map((item) => ({
+            announcements: (announcements ?? []).map((item: any) => ({
                 title: item.title,
                 body: item.body,
                 createdAt: item.createdAt.toISOString(),
@@ -764,6 +634,14 @@ export const instituteService = {
             studentsCount,
             photos: Array.from(new Set(photos)),
         };
+
+        try {
+            setCache(cacheKey, result, 5 * 60 * 1000);
+        } catch (err) {
+            logger.error({ event: "cache_set_failed", slug, error: err });
+        }
+
+        return result;
     },
 };
 

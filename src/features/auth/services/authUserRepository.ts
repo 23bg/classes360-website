@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { SubscriptionStatus } from "@/features/auth/types/session";
+import { userService } from "@/features/user/userService";
 
 export type SessionSnapshot = {
     userId: string;
@@ -38,28 +39,8 @@ export const authUserRepository = {
 
         let instituteId = user.instituteId;
         if (!instituteId) {
-            const baseSlug = (user.email.split("@")[0] || "classes360")
-                .toLowerCase()
-                .replace(/[^a-z0-9\s-]/g, "")
-                .replace(/\s+/g, "-")
-                .replace(/-+/g, "-")
-                .slice(0, 30);
-
-            const createdInstitute = await prisma.institute.create({
-                data: {
-                    name: null,
-                    slug: `temp-${baseSlug || "classes360"}-${Date.now().toString(36)}`,
-                    isOnboarded: false,
-                },
-                select: { id: true },
-            });
-
-            instituteId = createdInstitute.id;
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { instituteId },
-            });
+            const assigned = await userService.assignInstituteIfMissing(user.id);
+            instituteId = assigned.id;
         }
 
         const [institute, subscription] = await Promise.all([

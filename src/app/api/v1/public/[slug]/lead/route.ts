@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         routeLog.info("public_lead_submit_started", { slug });
 
         const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-        const rate = enforceRateLimit(`lead:${ip}:${slug}`, env.LEAD_RATE_LIMIT_PER_MIN, 60_000);
+        const rate = await enforceRateLimit(`lead:${ip}:${slug}`, env.LEAD_RATE_LIMIT_PER_MIN, 60_000);
         if (!rate.ok) {
             routeLog.warn("public_lead_submit_rate_limited", { slug, retryAfter: rate.retryAfter });
             return NextResponse.json(

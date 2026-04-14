@@ -68,7 +68,7 @@ const sendOtpForPurpose = async (input: RequestOtpInput): Promise<{ expiresAt: n
         throw new AppError("Invalid email", 400, "INVALID_EMAIL");
     }
 
-    const rate = enforceRateLimit(`otp:${input.purpose}:${input.ip}:${email}`, env.OTP_RATE_LIMIT_PER_MIN, 60_000);
+    const rate = await enforceRateLimit(`otp:${input.purpose}:${input.ip}:${email}`, env.OTP_RATE_LIMIT_PER_MIN, 60_000);
     if (!rate.ok) {
         throw new AppError(`Too many OTP requests. Retry in ${rate.retryAfter}s`, 429, "RATE_LIMITED");
     }
@@ -109,7 +109,10 @@ const sendOtpForPurpose = async (input: RequestOtpInput): Promise<{ expiresAt: n
         logger.debug({ email, purpose: input.purpose, otp }, "OTP debug log for non-production environments");
     }
 
-    await mailerService.sendOtpEmail({ email, otp, purpose: input.purpose });
+    // Send email asynchronously (fire-and-forget) so SMTP latency doesn't block the request.
+    mailerService
+        .sendOtpEmail({ email, otp, purpose: input.purpose })
+        .catch((err) => logger.error({ error: err, email, purpose: input.purpose }, "otp_email_send_failed"));
 
     return { expiresAt: expiresAt.getTime() };
 };

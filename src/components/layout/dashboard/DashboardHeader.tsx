@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import ImraboChat from "@/features/ai/components/ImraboChat";
@@ -9,6 +10,8 @@ import UserMenu from "@/features/auth/components/UserMenu";
 import GlobalSearch from "@/components/layout/dashboard/GlobalSearch";
 import ROUTES from "@/constants/routes";
 import { Bell, Building2, CircleHelp } from "lucide-react";
+import api from "@/lib/axios";
+import { API } from "@/constants/api";
 
 
 import {
@@ -45,16 +48,53 @@ export default function DashboardHeader() {
     const pathname = usePathname();
     const segments = pathname.split("/").filter(Boolean);
 
+    const [notifications, setNotifications] = useState<Array<{
+        id: string;
+        title: string;
+        message: string;
+        link?: string | null;
+        read: boolean;
+        createdAt: string;
+    }>>([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
+
     const crumbs = segments.map((segment, index) => {
         const href = `/${segments.slice(0, index + 1).join("/")}`;
         const label = routeLabelMap[segment] ?? toTitleCase(segment);
         return { href, label };
     });
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                setLoadingNotifications(true);
+                const res = await api.get(API.INTERNAL.NOTIFICATIONS.ADMIN + "?limit=50");
+                const data = res.data?.data ?? [];
+                if (mounted) setNotifications(data);
+            } catch (err) {
+                console.error("fetch notifications failed", err);
+            } finally {
+                if (mounted) setLoadingNotifications(false);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     return (
-        <header id="dashboard-header" className="flex h-16 items-center justify-between px-4 bg-background dark:bg-zinc-900/40 backdrop-blur-sm rounded-t-2xl">
+        <header id="dashboard-header" className="flex h-16 border-b items-center justify-between px-4 bg-background dark:bg-zinc-900/40 backdrop-blur-sm rounded-t-2xl">
             <div className="flex items-center gap-3 min-w-0">
-                <SidebarTrigger />
+                <div className="hidden md:block">
+                    <SidebarTrigger />
+                </div>
+
+                {/* Mobile breadcrumb / page title */}
+                <div className="flex md:hidden items-center gap-2 text-sm text-muted-foreground truncate">
+                    <span className="text-xl text-primary font-medium truncate">Classes360</span>
+                </div>
 
                 <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-2 text-sm text-muted-foreground truncate">
                     <Link href={ROUTES.DASHBOARD.ROOT} className="hover:text-foreground transition-colors">
@@ -98,37 +138,69 @@ export default function DashboardHeader() {
                             {/* unread badge */}
                             <span className="absolute -top-1 -right-1">
                                 <Badge variant="destructive" className="h-4 w-4 p-0 text-[10px] flex items-center justify-center">
-                                    3
+                                    {notifications.filter((n) => !n.read).length}
                                 </Badge>
                             </span>
                         </Button>
                     </PopoverTrigger>
 
                     <PopoverContent align="end" className="w-80 p-0">
-                        <div className="flex items-center justify-between px-4 py-2 border-b">
+                        <div className="flex items-center justify-between px-4 py-2 border-b bg-zinc-50 dark:bg-zinc-800">
                             <span className="text-sm font-medium">Notifications</span>
-                            <button className="text-xs text-muted-foreground hover:text-foreground">
+                            <button
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                                onClick={async () => {
+                                    try {
+                                        const unread = notifications.filter((n) => !n.read).map((n) => n.id);
+                                        if (unread.length === 0) return;
+                                        await Promise.all(
+                                            unread.map((id) => api.patch(API.INTERNAL.NOTIFICATIONS.ADMIN, { id, read: true }))
+                                        );
+                                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                                    } catch (err) {
+                                        console.error("mark all read failed", err);
+                                    }
+                                }}
+                            >
                                 Mark all read
                             </button>
                         </div>
-
-                        <ScrollArea className="h-80">
+                        <ScrollArea className="h-80 bg-zinc-50 dark:bg-zinc-800">
                             <div className="flex flex-col">
-                                {/* Example Notification */}
-                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
-                                    <p className="text-sm font-medium">New student registered</p>
-                                    <p className="text-xs text-muted-foreground">2 min ago</p>
-                                </div>
+                                {loadingNotifications ? (
+                                    <div className="px-4 py-3 text-sm text-muted-foreground">Loading...</div>
+                                ) : notifications.length === 0 ? (
+                                    <div className="px-4 py-3 text-sm text-muted-foreground">No notifications</div>
+                                ) : (
+                                    notifications.map((n) => (
+                                        <div
+                                            key={n.id}
+                                            className={`px-4 py-3 hover:bg-muted/50 cursor-pointer flex items-start gap-2 ${n.read ? "opacity-70" : ""}`}
+                                            onClick={async () => {
+                                                try {
+                                                    if (n.link) {
+                                                        window.location.href = n.link;
+                                                    }
+                                                    if (!n.read) {
+                                                        await api.patch(API.INTERNAL.NOTIFICATIONS.ADMIN, { id: n.id, read: true });
+                                                        setNotifications((prev) => prev.map((p) => (p.id === n.id ? { ...p, read: true } : p)));
+                                                    }
+                                                } catch (err) {
+                                                    console.error("mark read failed", err);
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">{n.title}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{n.message}</p>
+                                            </div>
 
-                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
-                                    <p className="text-sm font-medium">Payment received</p>
-                                    <p className="text-xs text-muted-foreground">10 min ago</p>
-                                </div>
-
-                                <div className="px-4 py-3 hover:bg-muted/50 cursor-pointer">
-                                    <p className="text-sm font-medium">Batch updated</p>
-                                    <p className="text-xs text-muted-foreground">1 hour ago</p>
-                                </div>
+                                            <div className="text-xs text-muted-foreground whitespace-nowrap">
+                                                {new Date(n.createdAt).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </ScrollArea>
 

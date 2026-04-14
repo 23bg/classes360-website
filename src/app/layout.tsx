@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "@/components/ui/sonner";
@@ -21,6 +21,16 @@ export const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+
+// 2. Export the viewport configuration
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+   viewportFit: "cover",
+  // Also helpful for PWAs to prevent zooming on input focus
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://classes360.online"),

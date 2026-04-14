@@ -13,6 +13,8 @@ import { TablePaginationControls } from "@/components/ui/table-pagination-contro
 import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
 import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { validateFile } from "@/lib/storage/utils";
 import {
     addBatchAttendance,
     addBatchNote,
@@ -57,6 +59,7 @@ export default function BatchesPage() {
     const [attendanceStatus, setAttendanceStatus] = useState<"PRESENT" | "ABSENT">("PRESENT");
     const [form, setForm] = useState<BatchForm>(emptyForm);
     const [page, setPage] = useState(1);
+    const { uploadFile, isLoading: uploadingFile } = useFileUpload();
     const batches = batchesState?.rows ?? [];
     const courses = batchesState?.courses ?? [];
     const teachers = batchesState?.teachers ?? [];
@@ -168,6 +171,24 @@ export default function BatchesPage() {
             setNoteForm({ title: "", description: "", fileUrl: "" });
         } catch (error: any) {
             toast.error(error?.response?.data?.error?.message ?? "Failed to add note");
+        }
+    };
+
+    const handleNoteFileUpload = async (file?: File) => {
+        if (!file) return;
+
+        const validation = validateFile(file);
+        if (!validation.isValid) {
+            toast.error(validation.error ?? "Invalid file");
+            return;
+        }
+
+        try {
+            const fileUrl = await uploadFile(file, "documents", file.name);
+            setNoteForm((prev) => ({ ...prev, fileUrl }));
+            toast.success("File uploaded successfully");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "File upload failed");
         }
     };
 
@@ -379,9 +400,21 @@ export default function BatchesPage() {
                                 <p className="font-medium">Notes</p>
                                 <div className="grid gap-2 md:grid-cols-3">
                                     <Input placeholder="Title" value={noteForm.title} onChange={(e) => setNoteForm((prev) => ({ ...prev, title: e.target.value }))} />
-                                    <Input placeholder="File URL (optional)" value={noteForm.fileUrl} onChange={(e) => setNoteForm((prev) => ({ ...prev, fileUrl: e.target.value }))} />
+                                    <Input
+                                        type="file"
+                                        disabled={savingNote || uploadingFile}
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            void handleNoteFileUpload(file);
+                                            event.currentTarget.value = "";
+                                        }}
+                                    />
                                     <Button onClick={saveBatchNote} disabled={savingNote}>{savingNote ? "Saving..." : "Add Note"}</Button>
                                 </div>
+                                {noteForm.fileUrl ? <p className="text-xs text-muted-foreground break-all">Attachment: {noteForm.fileUrl}</p> : null}
+                                {noteForm.fileUrl ? (
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setNoteForm((prev) => ({ ...prev, fileUrl: "" }))}>Remove Attachment</Button>
+                                ) : null}
                                 <Input placeholder="Description (optional)" value={noteForm.description} onChange={(e) => setNoteForm((prev) => ({ ...prev, description: e.target.value }))} />
 
                                 <div className="rounded border overflow-x-auto">

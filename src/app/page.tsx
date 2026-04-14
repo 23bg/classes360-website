@@ -81,6 +81,12 @@ export default async function Page() {
     const portalDomain = hostname.includes("localhost")
         ? "localhost:3000"
         : `portal.${hostname.replace("www.", "")}`;
+
+    // Avoid forcing HTTPS for local development (localhost). Use HTTP locally
+    if (hostname.includes("localhost")) {
+        redirect(`http://${portalDomain}`);
+    }
+
     redirect(`https://${portalDomain}`);
 }
 

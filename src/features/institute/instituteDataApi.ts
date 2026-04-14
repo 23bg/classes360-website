@@ -115,4 +115,60 @@ export const instituteRepository = {
 
     getDomainRecord: async (host: string) =>
         prisma.instituteDomain.findUnique({ where: { host: host.toLowerCase() } }),
+
+    getPublicPageData: async (slug: string) => {
+        const institute = await prisma.institute.findUnique({ where: { slug } });
+        if (!institute) return null;
+
+        const [courses, users, batches, studentsCount, announcements] = await Promise.all([
+            prisma.course.findMany({
+                where: { instituteId: institute.id },
+                orderBy: { createdAt: "desc" },
+                select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    banner: true,
+                    duration: true,
+                    defaultFees: true,
+                    description: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.user.findMany({
+                where: { instituteId: institute.id },
+                select: {
+                    id: true,
+                    name: true,
+                    subject: true,
+                    bio: true,
+                },
+            }),
+            prisma.batch.findMany({
+                where: { instituteId: institute.id },
+                orderBy: { createdAt: "desc" },
+                take: 8,
+            }),
+            prisma.student.count({ where: { instituteId: institute.id } }),
+            prisma.studentAnnouncement.findMany({
+                where: { instituteId: institute.id },
+                orderBy: { createdAt: "desc" },
+                take: 25,
+                select: {
+                    title: true,
+                    body: true,
+                    createdAt: true,
+                },
+            }),
+        ]);
+
+        return {
+            institute,
+            courses,
+            users,
+            batches,
+            studentsCount,
+            announcements,
+        };
+    },
 };

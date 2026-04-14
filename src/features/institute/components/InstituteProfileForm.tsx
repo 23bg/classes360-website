@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { InputGroup, InputGroupAddon, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
 import { useAppDispatch } from "@/hooks/reduxHooks";
 import { saveInstituteProfile } from "@/features/dashboard/dashboardSlice";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { isImageFile, validateFile } from "@/lib/storage/utils";
 
 export const instituteProfileSchema = z.object({
 	name: z.string().trim().min(2, "Institute name must be at least 2 characters.").max(80, "Institute name cannot exceed 80 characters."),
@@ -47,6 +49,8 @@ type InstituteProfileFormProps = {
 
 export default function InstituteProfileForm({ initialValues, onCancel, onSaved }: InstituteProfileFormProps) {
 	const dispatch = useAppDispatch();
+	const { uploadFile } = useFileUpload();
+	const [uploadingField, setUploadingField] = useState<"logo" | "banner" | null>(null);
 	const form = useForm<InstituteFormValues>({
 		resolver: zodResolver(instituteProfileSchema),
 		mode: "onBlur",
@@ -56,6 +60,34 @@ export default function InstituteProfileForm({ initialValues, onCancel, onSaved 
 	useEffect(() => {
 		form.reset(initialValues);
 	}, [form, initialValues]);
+
+	const handleImageUpload = async (
+		file: File,
+		fieldName: "logo" | "banner",
+		onChange: (value: string) => void
+	) => {
+		const validation = validateFile(file);
+		if (!validation.isValid) {
+			toast.error(validation.error ?? "Invalid file");
+			return;
+		}
+
+		if (!isImageFile(file)) {
+			toast.error("Only image files are allowed for this field");
+			return;
+		}
+
+		try {
+			setUploadingField(fieldName);
+			const fileUrl = await uploadFile(file, "institutes", file.name);
+			onChange(fileUrl);
+			toast.success(`${fieldName === "logo" ? "Logo" : "Banner"} uploaded successfully`);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Upload failed");
+		} finally {
+			setUploadingField(null);
+		}
+	};
 
 	const onSubmit = async (values: InstituteFormValues) => {
 		try {
@@ -278,13 +310,27 @@ export default function InstituteProfileForm({ initialValues, onCancel, onSaved 
 						</Field>
 
 						<Field>
-							<FieldLabel>Logo URL</FieldLabel>
+							<FieldLabel>Logo</FieldLabel>
 							<Controller
 								name="logo"
 								control={form.control}
 								render={({ field, fieldState }) => (
 									<>
-										<Input {...field} type="url" maxLength={2048} placeholder="https://..." />
+										<div className="space-y-2">
+											<Input
+												type="file"
+												accept="image/jpeg,image/png,image/webp"
+												disabled={form.formState.isSubmitting || uploadingField === "logo"}
+												onChange={(event) => {
+													const file = event.target.files?.[0];
+													if (!file) return;
+													void handleImageUpload(file, "logo", field.onChange);
+													event.currentTarget.value = "";
+												}}
+											/>
+											{field.value ? <p className="text-xs text-muted-foreground break-all">Current: {field.value}</p> : null}
+											{field.value ? <Button type="button" variant="outline" size="sm" onClick={() => field.onChange("")}>Remove</Button> : null}
+										</div>
 										<FieldError errors={[fieldState.error]} />
 									</>
 								)}
@@ -292,13 +338,27 @@ export default function InstituteProfileForm({ initialValues, onCancel, onSaved 
 						</Field>
 
 						<Field>
-							<FieldLabel>Banner URL</FieldLabel>
+							<FieldLabel>Banner</FieldLabel>
 							<Controller
 								name="banner"
 								control={form.control}
 								render={({ field, fieldState }) => (
 									<>
-										<Input {...field} type="url" maxLength={2048} placeholder="https://..." />
+										<div className="space-y-2">
+											<Input
+												type="file"
+												accept="image/jpeg,image/png,image/webp"
+												disabled={form.formState.isSubmitting || uploadingField === "banner"}
+												onChange={(event) => {
+													const file = event.target.files?.[0];
+													if (!file) return;
+													void handleImageUpload(file, "banner", field.onChange);
+													event.currentTarget.value = "";
+												}}
+											/>
+											{field.value ? <p className="text-xs text-muted-foreground break-all">Current: {field.value}</p> : null}
+											{field.value ? <Button type="button" variant="outline" size="sm" onClick={() => field.onChange("")}>Remove</Button> : null}
+										</div>
 										<FieldError errors={[fieldState.error]} />
 									</>
 								)}

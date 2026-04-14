@@ -16,6 +16,8 @@ import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
 import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 import { deleteCourse as deleteCourseThunk, fetchCourses, saveCourse as saveCourseThunk } from "@/features/dashboard/dashboardSlice";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { isImageFile, validateFile } from "@/lib/storage/utils";
 
 type Course = {
     id: string;
@@ -44,6 +46,7 @@ export default function CoursesPage() {
     const [form, setForm] = useState<CourseForm>(emptyForm);
     const [searchQuery, setSearchQuery] = useState("");
     const [page, setPage] = useState(1);
+    const { uploadFile, isLoading: uploadingBanner } = useFileUpload();
 
     useEffect(() => {
         void dispatch(fetchCourses());
@@ -97,6 +100,29 @@ export default function CoursesPage() {
             await dispatch(fetchCourses()).unwrap();
         } catch (error: any) {
             toast.error(error?.response?.data?.error?.message ?? "Network error");
+        }
+    };
+
+    const handleBannerUpload = async (file?: File) => {
+        if (!file) return;
+
+        const validation = validateFile(file);
+        if (!validation.isValid) {
+            toast.error(validation.error ?? "Invalid file");
+            return;
+        }
+
+        if (!isImageFile(file)) {
+            toast.error("Only image files are allowed for course banner");
+            return;
+        }
+
+        try {
+            const fileUrl = await uploadFile(file, "courses", file.name);
+            setForm((prev) => ({ ...prev, banner: fileUrl }));
+            toast.success("Banner uploaded successfully");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Banner upload failed");
         }
     };
 
@@ -242,8 +268,21 @@ export default function CoursesPage() {
                             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. NEET 2026, JEE Foundation" minLength={2} maxLength={120} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Banner URL</Label>
-                            <Input type="url" value={form.banner} onChange={(e) => setForm({ ...form, banner: e.target.value })} placeholder="https://..." maxLength={2048} />
+                            <Label>Banner</Label>
+                            <Input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                disabled={saving || uploadingBanner}
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    void handleBannerUpload(file);
+                                    event.currentTarget.value = "";
+                                }}
+                            />
+                            {form.banner ? <p className="text-xs text-muted-foreground break-all">Current: {form.banner}</p> : null}
+                            {form.banner ? (
+                                <Button type="button" variant="outline" size="sm" onClick={() => setForm((prev) => ({ ...prev, banner: "" }))}>Remove Banner</Button>
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <Label>Duration</Label>

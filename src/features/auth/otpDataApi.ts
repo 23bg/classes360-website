@@ -29,94 +29,107 @@ export const otpRepository = {
             return false;
         }
 
-        await userRepository.updateByEmail(normalizedEmail, {
-            otpHash: hashOtp(input.otp, input.purpose),
-            otpExpiresAt: input.expiresAt,
-            otpResendCount: input.resendCount,
-            otpAttempts: 0,
-            otpPending: true,
-            subject: purposeSubject(input.purpose),
+        const otpHash = hashOtp(input.otp, input.purpose);
+
+        const existing = await prisma.otp.findFirst({
+            where: { email: normalizedEmail, purpose: input.purpose },
         });
+
+        if (!existing) {
+            await prisma.otp.create({
+                data: {
+                    email: normalizedEmail,
+                    purpose: input.purpose,
+                    otpHash,
+                    expiresAt: input.expiresAt,
+                    attempts: 0,
+                    resendCount: input.resendCount,
+                    consumed: false,
+                },
+            });
+        } else {
+            await prisma.otp.update({
+                where: { id: existing.id },
+                data: {
+                    otpHash,
+                    expiresAt: input.expiresAt,
+                    attempts: 0,
+                    resendCount: input.resendCount,
+                    consumed: false,
+                },
+            });
+        }
 
         return true;
     },
 
-    getLatestByEmailAndPurpose: async (email: string, purpose: OtpPurpose) =>
-        prisma.user.findUnique({
-            where: { email: email.trim().toLowerCase() },
+    getLatestByEmailAndPurpose: async (email: string, purpose: OtpPurpose) => {
+        const normalizedEmail = email.trim().toLowerCase();
+        const record = await prisma.otp.findFirst({
+            where: { email: normalizedEmail, purpose, consumed: false },
+            orderBy: { createdAt: "desc" },
             select: {
-                otpExpiresAt: true,
-                otpResendCount: true,
-                otpPending: true,
-                subject: true,
+                expiresAt: true,
+                resendCount: true,
+                consumed: true,
             },
-        }).then((record) => {
-            if (!record) return null;
-            if (record.subject !== purposeSubject(purpose)) {
-                return null;
-            }
-            return record;
-        }),
+        });
+
+        if (!record) return null;
+
+        return {
+            otpExpiresAt: record.expiresAt,
+            otpResendCount: record.resendCount,
+            otpPending: !record.consumed,
+            subject: purposeSubject(purpose),
+        };
+    },
 
     verifyOtp: async (email: string, otp: string, purpose: OtpPurpose) => {
         const normalizedEmail = email.trim().toLowerCase();
-        const record = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-            select: {
-                otpHash: true,
-                otpExpiresAt: true,
-                otpPending: true,
-                otpAttempts: true,
-                subject: true,
+        const now = new Date();
+        const computedHash = hashOtp(otp, purpose);
+
+        // Try atomic match-and-mark (success path)
+        const matched = await prisma.otp.updateMany({
+            where: {
+                email: normalizedEmail,
+                purpose,
+                otpHash: computedHash,
+                consumed: false,
+                expiresAt: { gt: now },
+                attempts: { lt: MAX_VERIFY_ATTEMPTS },
             },
+            data: { consumed: true },
         });
 
-        if (!record) return false;
-        if (record.subject !== purposeSubject(purpose)) return false;
-        if (!record.otpPending || !record.otpHash || !record.otpExpiresAt) return false;
-        if ((record.otpAttempts ?? 0) >= MAX_VERIFY_ATTEMPTS) return false;
-        if (record.otpExpiresAt.getTime() < Date.now()) {
-            await userRepository.updateByEmail(normalizedEmail, {
-                otpPending: false,
-                otpHash: null,
-                otpExpiresAt: null,
-                otpResendCount: 0,
-                otpAttempts: 0,
-                subject: null,
-            });
-            return false;
-        }
+        if (matched.count > 0) return true;
 
-        const isValid = record.otpHash === hashOtp(otp, purpose);
-        if (!isValid) {
-            const nextAttempts = (record.otpAttempts ?? 0) + 1;
-            await userRepository.updateByEmail(normalizedEmail, {
-                otpAttempts: nextAttempts,
-                ...(nextAttempts >= MAX_VERIFY_ATTEMPTS
-                    ? {
-                        otpPending: false,
-                        otpHash: null,
-                        otpExpiresAt: null,
-                        otpResendCount: 0,
-                        subject: null,
-                    }
-                    : {}),
-            });
-            return false;
-        }
+        // Failure path: increment attempts for active OTP(s)
+        const inc = await prisma.otp.updateMany({
+            where: { email: normalizedEmail, purpose, consumed: false, expiresAt: { gt: now } },
+            data: { attempts: { increment: 1 } },
+        });
 
-        return true;
+        if (inc.count === 0) return false;
+
+        // If any reached the max attempts, mark them consumed
+        await prisma.otp.updateMany({
+            where: { email: normalizedEmail, purpose, consumed: false, attempts: { gte: MAX_VERIFY_ATTEMPTS } },
+            data: { consumed: true },
+        });
+
+        return false;
     },
 
-    consumeOtp: async (email: string, input?: { markEmailVerified?: boolean }) =>
-        userRepository.updateByEmail(email, {
-            otpHash: null,
-            otpExpiresAt: null,
-            otpPending: false,
-            otpResendCount: 0,
-            otpAttempts: 0,
-            subject: null,
-            ...(input?.markEmailVerified ? { emailVerified: true } : {}),
-        }),
+    consumeOtp: async (email: string, input?: { markEmailVerified?: boolean }) => {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (input?.markEmailVerified) {
+            await userRepository.updateByEmail(normalizedEmail, { emailVerified: true });
+        }
+
+        await prisma.otp.updateMany({ where: { email: normalizedEmail }, data: { consumed: true } });
+    },
 };
 

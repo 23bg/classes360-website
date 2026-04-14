@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { readSessionFromCookie } from "@/lib/auth/auth";
 import { instituteService } from "@/features/institute/instituteApi";
-import { userRepository } from "@/features/auth/userDataApi";
+import { userService } from "@/features/user/userService";
 import { DashboardLayoutWithProviders } from "@/providers/DashboardLayoutWithProviders";
 
 export const metadata: Metadata = {
@@ -31,10 +31,10 @@ export default async function AppLayout({
         redirect("/onboarding");
     }
 
-    const user = await userRepository.findById(session.userId);
+    const firstLogin = await userService.getUserFirstLogin(session.userId);
 
     return (
-        <DashboardLayoutWithProviders showFirstLoginShowcase={Boolean(user?.firstLogin)}>
+        <DashboardLayoutWithProviders showFirstLoginShowcase={Boolean(firstLogin)}>
             {children}
         </DashboardLayoutWithProviders>
     );
