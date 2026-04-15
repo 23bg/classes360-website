@@ -1,22 +1,22 @@
 import { prisma } from "@/lib/db/prisma";
-import type { BillingProvider } from "@prisma/client";
+import { BillingProviderKey } from "./billing.types";
 
 export const subscriptionTransactionRepository = {
     create: async (input: {
-        instituteId: string;
-        userId?: string | null;
-        provider: BillingProvider;
-        providerPaymentId?: string | null;
-        providerSubscriptionId?: string | null;
-        providerEventId?: string | null;
-        subscriptionId?: string | null;
-        planType?: string | null;
-        amount: number;
-        currency: string;
-        status: "PENDING" | "VERIFIED" | "FAILED" | "SUCCEEDED" | "CANCELLED";
-        startDate?: Date | null;
-        endDate?: Date | null;
-        metadata?: Record<string, unknown> | null;
+      instituteId: string;
+      userId?: string | null;
+      provider: BillingProviderKey;
+      providerPaymentId?: string | null;
+      providerSubscriptionId?: string | null;
+      providerEventId?: string | null;
+      subscriptionId?: string | null;
+      planType?: string | null;
+      amount: number;
+      currency: string;
+      status: "PENDING" | "VERIFIED" | "FAILED" | "SUCCEEDED" | "CANCELLED";
+      startDate?: Date | null;
+      endDate?: Date | null;
+      metadata?: Record<string, unknown> | null;
     }) =>
         prisma.subscriptionTransaction.create({
             data: {
@@ -37,15 +37,33 @@ export const subscriptionTransactionRepository = {
             },
         }),
 
-    findByProviderPaymentId: async (provider: BillingProvider, providerPaymentId: string) =>
-        prisma.subscriptionTransaction.findFirst({
-            where: {
-                provider,
-                providerPaymentId,
-            },
-        }),
+    async findByProviderPaymentId(
+  provider: BillingProviderKey,
+  paymentId: string
+) {
+  switch (provider) {
+    case "STRIPE":
+      return prisma.subscriptionTransaction.findFirst({
+        where: {
+          provider: "STRIPE",
+          providerPaymentId: paymentId,
+        },
+      });
 
-    findByProviderSubscriptionId: async (provider: BillingProvider, providerSubscriptionId: string) =>
+    case "RAZORPAY":
+      return prisma.subscriptionTransaction.findFirst({
+        where: {
+          provider: "RAZORPAY",
+          providerPaymentId: paymentId,
+        },
+      });
+
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
+},
+
+    findByProviderSubscriptionId: async (provider: BillingProviderKey, providerSubscriptionId: string) =>
         prisma.subscriptionTransaction.findFirst({
             where: {
                 provider,

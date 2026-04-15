@@ -228,10 +228,13 @@ export const billingService = {
             ? INTERNATIONAL_PRICING_USD[subscription.planType as PlanType]
             : getPlanPricing(subscription.planType as PlanType, { grandfathered: isGrandfatheredSubscription(subscription.createdAt) });
         const transactionAmount = invoice?.totalAmount ?? (billingInterval === "YEARLY" ? planPricing.yearly : planPricing.monthly);
-        const periodDays = billingInterval === "YEARLY" ? 365 : 30;
-        const existingTransaction = verification.providerPaymentId
-            ? await subscriptionTransactionRepository.findByProviderPaymentId(input.provider, verification.providerPaymentId)
-            : null;
+                const periodDays = billingInterval === "YEARLY" ? 365 : 30;
+                const existingTransaction = verification.providerPaymentId
+                        ? await subscriptionTransactionRepository.findByProviderPaymentId(
+                                input.provider,
+                                verification.providerPaymentId
+                            )
+                        : null;
 
         if (!existingTransaction) {
             await subscriptionTransactionRepository.create({
