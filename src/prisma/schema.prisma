@@ -22,7 +22,7 @@ enum SubscriptionStatus {
 }
 
 enum BillingProvider {
-    // RAZORPAY
+    RAZORPAY
     STRIPE
 }
 
