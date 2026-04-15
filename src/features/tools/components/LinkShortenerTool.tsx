@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getApiUrl } from "@/lib/api/url";
 
 type CreateShortLinkResponse = {
     success: boolean;
@@ -34,7 +35,7 @@ export default function LinkShortenerTool() {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch("/api/v1/tools/short-links", {
+            const response = await fetch(getApiUrl("/api/v1/tools/short-links"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

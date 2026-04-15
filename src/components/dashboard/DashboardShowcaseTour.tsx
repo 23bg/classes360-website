@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { NextStep, NextStepProvider, useNextStep, type Tour } from "nextstepjs";
 import ROUTES from "@/constants/routes";
+import { getApiUrl } from "@/lib/api/url";
 
 type DashboardShowcaseTourProps = {
     enabled: boolean;

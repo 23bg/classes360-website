@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
+import type { BillingProvider as PrismaBillingProvider } from "@prisma/client";
 import { BillingProviderKey } from "./billing.types";
+
+const mapToPrismaProvider = (p: BillingProviderKey): PrismaBillingProvider => {
+  switch (p) {
+    case "STRIPE":
+      return "STRIPE";
+    case "RAZORPAY":
+      return "RAZORPAY";
+    default:
+      throw new Error(`Unsupported provider: ${p}`);
+  }
+};
 
 export const subscriptionTransactionRepository = {
     create: async (input: {
@@ -22,7 +34,7 @@ export const subscriptionTransactionRepository = {
             data: {
                 instituteId: input.instituteId,
                 userId: input.userId ?? null,
-                provider: input.provider,
+                provider: mapToPrismaProvider(input.provider),
                 providerPaymentId: input.providerPaymentId ?? null,
                 providerSubscriptionId: input.providerSubscriptionId ?? null,
                 providerEventId: input.providerEventId ?? null,
@@ -37,37 +49,20 @@ export const subscriptionTransactionRepository = {
             },
         }),
 
-    async findByProviderPaymentId(
-  provider: BillingProviderKey,
-  paymentId: string
-) {
-  switch (provider) {
-    case "STRIPE":
-      return prisma.subscriptionTransaction.findFirst({
-        where: {
-          provider: "STRIPE",
-          providerPaymentId: paymentId,
-        },
-      });
-
-    case "RAZORPAY":
-      return prisma.subscriptionTransaction.findFirst({
-        where: {
-          provider: "RAZORPAY",
-          providerPaymentId: paymentId,
-        },
-      });
-
-    default:
-      throw new Error(`Unsupported provider: ${provider}`);
-  }
-},
+    async findByProviderPaymentId(provider: BillingProviderKey, paymentId: string) {
+        return prisma.subscriptionTransaction.findFirst({
+            where: {
+                provider: mapToPrismaProvider(provider),
+                providerPaymentId: paymentId,
+            },
+        });
+    },
 
     findByProviderSubscriptionId: async (provider: BillingProviderKey, providerSubscriptionId: string) =>
-        prisma.subscriptionTransaction.findFirst({
-            where: {
-                provider,
-                providerSubscriptionId,
-            },
-        }),
+      prisma.subscriptionTransaction.findFirst({
+        where: {
+          provider: mapToPrismaProvider(provider),
+          providerSubscriptionId,
+        },
+      }),
 };

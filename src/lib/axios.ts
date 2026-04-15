@@ -1,13 +1,14 @@
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
 import { API } from "../constants";
+import { getApiUrl } from "./api/url";
 import ROUTES from "../constants/routes";
 import { AppError } from "@/lib/utils/error";
 
 const api = axios.create({
-  baseURL: API.BASE_V1,
+  baseURL: getApiUrl(API.BASE_V1),
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
-  timeout: 10000
+  timeout: 10000,
 });
 
 // This queue will hold promises that should be resolved after the token is refreshed.

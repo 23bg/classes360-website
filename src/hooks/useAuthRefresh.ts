@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { getApiUrl } from "@/lib/api/url";
 
 /**
  * Client-side hook for automatic token refresh
@@ -22,7 +23,7 @@ export function useAuthRefresh() {
 
         const refreshAccessToken = async () => {
             try {
-                const response = await fetch("/api/v1/auth/refresh", {
+                const response = await fetch(getApiUrl("/api/v1/auth/refresh"), {
                     method: "POST",
                     credentials: "include", // Include cookies
                 });
@@ -61,7 +62,7 @@ export function useStudentAuthRefresh() {
 
         const refreshAccessToken = async () => {
             try {
-                const response = await fetch("/api/v1/student/refresh", {
+                const response = await fetch(getApiUrl("/api/v1/student/refresh"), {
                     method: "POST",
                     credentials: "include",
                 });

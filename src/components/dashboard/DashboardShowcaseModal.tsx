@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { getApiUrl } from "@/lib/api/url";
 
 type DashboardShowcaseModalProps = {
     openByDefault: boolean;
@@ -35,7 +36,7 @@ export default function DashboardShowcaseModal({ openByDefault }: DashboardShowc
     const step = useMemo(() => steps[stepIndex], [stepIndex]);
 
     const completeShowcase = async () => {
-        await fetch("/api/v1/dashboard/showcase/complete", { method: "POST" });
+        await fetch(getApiUrl("/api/v1/dashboard/showcase/complete"), { method: "POST" });
         setOpen(false);
     };
 

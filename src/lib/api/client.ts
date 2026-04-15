@@ -1,6 +1,21 @@
+<<<<<<< Updated upstream
  import axios, { AxiosInstance } from 'axios';
 
 const DEFAULT_BASE_URL = '/api/v1';
+=======
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { API } from "@/constants/api";
+import { getApiUrl } from "@/lib/api/url";
+
+const api = axios.create({
+    baseURL: getApiUrl(API.BASE_V1),
+    headers: {
+        "Content-Type": "application/json",
+    },
+    withCredentials: true,
+    timeout: 10000,
+});
+>>>>>>> Stashed changes
 
 const resolveBaseURL = (): string => {
     const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
