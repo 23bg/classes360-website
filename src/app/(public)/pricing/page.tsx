@@ -7,6 +7,7 @@ import CTA from "@/components/landing/CTA";
 import LogoStrip from "@/components/landing/LogoStrip";
 import TrustBar from "@/components/landing/TrustBar";
 import JsonLd from "@/components/seo/JsonLd";
+import { PLAN_PRICING_CURRENT } from "@/config/plans";
 
 export async function generateMetadata(): Promise<Metadata> {
     const t = await getTranslations("pages");
@@ -40,12 +41,26 @@ export default function PricingPage() {
         name: "Classes360",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        offers: {
-            "@type": "Offer",
-            priceCurrency: "INR",
-            price: "999",
-            description: "Starter monthly plan",
-        },
+        offers: [
+            {
+                "@type": "Offer",
+                priceCurrency: "INR",
+                price: PLAN_PRICING_CURRENT.STARTER.monthly?.toString(),
+                description: "Starter monthly plan",
+            },
+            {
+                "@type": "Offer",
+                priceCurrency: "INR",
+                price: PLAN_PRICING_CURRENT.TEAM.monthly?.toString(),
+                description: "Team monthly plan",
+            },
+            {
+                "@type": "Offer",
+                priceCurrency: "INR",
+                price: PLAN_PRICING_CURRENT.GROWTH.monthly?.toString(),
+                description: "Growth monthly plan",
+            },
+        ],
     };
 
     return (

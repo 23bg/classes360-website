@@ -2,10 +2,8 @@
 
 import {
     Home,
-    Building2,
-    Users,
     BookOpen,
-    Layers,
+    
     IndianRupee,
     UserRound,
     Wallet,
@@ -36,9 +34,9 @@ import { usePathname } from "next/navigation"
 export function DashboardAppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     const pathname = usePathname();
-    const { state } = useSidebar();
+    useSidebar();
 
-    const withActiveFlag = (items: any[]) =>
+    const withActiveFlag = <T extends { url?: string }>(items: T[]): Array<T & { isActive: boolean }> =>
         items.map((item) => {
             const isRoot = item.url === "/";
 
@@ -102,7 +100,7 @@ export function DashboardAppSidebar({ ...props }: React.ComponentProps<typeof Si
 
                 {
                     title: "Billing",
-                    // url: ROUTES.DASHBOARD.BILLING,
+                    url: ROUTES.DASHBOARD.BILLING,
                     icon: Wallet,
                     children: [
                         // {

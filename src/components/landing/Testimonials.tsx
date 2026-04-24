@@ -36,7 +36,7 @@ export default function Testimonials() {
                         <Card key={item.institute} className="border-border bg-card h-full">
                             <CardContent className="p-4 md:p-6 flex flex-col h-full">
                                 <Quote className="h-5 w-5 text-primary" aria-hidden />
-                                <p className="mt-4 text-sm leading-6 text-foreground">"{item.quote}"</p>
+                                <p className="mt-4 text-sm leading-6 text-foreground">&ldquo;{item.quote}&rdquo;</p>
                                 <div className="mt-5 border-t pt-3">
                                     <h3 className="text-sm font-semibold text-foreground">{item.institute}</h3>
                                     <p className="text-xs text-muted-foreground">{item.role}</p>

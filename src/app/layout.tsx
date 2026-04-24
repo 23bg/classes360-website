@@ -3,6 +3,7 @@ import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { AppStateProvider } from "@/providers/AppStateProvider";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -92,20 +93,22 @@ export default async function RootLayout({
       className={`${inter.variable} ${jakarta.variable}`}
     >
       <body className="bg-background text-foreground antialiased font-sans">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <NextIntlClientProvider locale={locale} messages={messages}>
-            <NextTopLoader showSpinner={false} color="var(--color-primary)" shadow={false} />
-            <PWARegistration />
-            {children}
-            <Toaster
-              duration={3000}
-              position="bottom-right"
-              richColors
-              expand
-              offset={{ bottom: "1.5rem" }}
-            />
-          </NextIntlClientProvider>
-        </ThemeProvider>
+        <AppStateProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <NextTopLoader showSpinner={false} color="var(--color-primary)" shadow={false} />
+              <PWARegistration />
+              {children}
+              <Toaster
+                duration={3000}
+                position="bottom-right"
+                richColors
+                expand
+                offset={{ bottom: "1.5rem" }}
+              />
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </AppStateProvider>
       </body>
     </html>
   );

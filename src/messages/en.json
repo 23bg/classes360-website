@@ -175,6 +175,10 @@
         "plans": {
             "whenToUse": "When to use",
             "includesLabel": "Includes",
+            "studentsUpTo": "Up to {count} students",
+            "unlimitedStudents": "Unlimited students",
+            "enquiriesUpTo": "Up to {count} enquiries / month",
+            "unlimitedEnquiries": "Unlimited enquiries",
             "capabilities": {
                 "item1": "Capture enquiries from website forms, QR codes, and shared links",
                 "item2": "Track every follow-up until admission",
@@ -381,10 +385,28 @@
             "rows": {
                 "users": {
                     "feature": "Users",
-                        "values": {
-                        "starter": "Up to 1",
-                        "team": "Up to 10",
-                        "growth": "Up to 25",
+                    "values": {
+                        "starter": "Up to 2",
+                        "team": "Up to 8",
+                        "growth": "Up to 20",
+                        "scale": "Unlimited"
+                    }
+                },
+                "students": {
+                    "feature": "Students",
+                    "values": {
+                        "starter": "Up to 250",
+                        "team": "Up to 800",
+                        "growth": "Up to 2,000",
+                        "scale": "Unlimited"
+                    }
+                },
+                "enquiries": {
+                    "feature": "Enquiries",
+                    "values": {
+                        "starter": "Up to 1,000",
+                        "team": "Up to 4,000",
+                        "growth": "Up to 10,000",
                         "scale": "Unlimited"
                     }
                 },
@@ -424,8 +446,8 @@
                         "scale": "Included"
                     }
                 },
-                "whatsAppAlerts": {
-                    "feature": "WhatsApp alerts",
+                "alerts": {
+                    "feature": "Alerts included",
                     "values": {
                         "starter": "Included",
                         "team": "Included",
@@ -508,8 +530,8 @@
     "pages": {
         "landingMetaTitle": "Classes360 - Admission system for coaching institutes",
         "landingMetaDescription": "Stop losing enquiries. Capture leads, track admissions, and manage students. Built for Indian coaching institutes.",
-        "pricingMetaTitle": "Classes360 pricing - Simple plans starting at ₹999/month",
-        "pricingMetaDescription": "Transparent pricing. No hidden fees. Start free. Pay only when your team grows.",
+        "pricingMetaTitle": "Classes360 pricing - Simple plans starting at ₹1999/month",
+        "pricingMetaDescription": "Transparent institute pricing. No hidden fees. Start free. Pay only when your team grows.",
         "featuresMetaTitle": "What you get with Classes360",
         "featuresMetaDescription": "Enquiry capture, admission tracking, student management, fee tracking, team alerts.",
         "contactMetaTitle": "Contact Classes360",

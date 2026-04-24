@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import InstituteProfileView from "@/features/institute/components/InstituteProfileView";
 import InstituteProfileForm, { InstituteFormValues as InstituteFormState } from "@/features/institute/components/InstituteProfileForm";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchInstituteSummary } from "@/features/appInstitute/appInstituteSlice";
+import { useInstituteSummary } from "@/features/appInstitute/hooks/useAppInstitute";
 
 const emptyForm: InstituteFormState = {
     name: "",
@@ -31,15 +30,10 @@ const emptyForm: InstituteFormState = {
 };
 
 export default function InstitutePage() {
-    const dispatch = useAppDispatch();
-    const summary = useAppSelector((state) => state.appInstitute.summary.data);
+    const { data: summary, refetch } = useInstituteSummary();
     const [mode, setMode] = useState<"view" | "edit">("view");
 
-    useEffect(() => {
-        void dispatch(fetchInstituteSummary());
-    }, [dispatch]);
-
-    const form = summary?.form ?? emptyForm;
+    const form = (summary?.form ?? emptyForm) as InstituteFormState;
     const studentsCount = summary?.studentsCount ?? 0;
     const coursesCount = summary?.coursesCount ?? 0;
 
@@ -50,7 +44,7 @@ export default function InstitutePage() {
                     initialValues={form}
                     onCancel={() => setMode("view")}
                     onSaved={async () => {
-                        await dispatch(fetchInstituteSummary()).unwrap();
+                        await refetch();
                         setMode("view");
                     }}
                 />

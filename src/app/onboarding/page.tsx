@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchOnboardingInstitute, submitOnboarding } from "@/features/appInstitute/appInstituteSlice";
+import { useOnboardingInstitute, useSubmitOnboarding } from "@/features/appInstitute/hooks/useAppInstitute";
 
 type OnboardingForm = {
     name: string;
@@ -35,10 +34,9 @@ type FieldError = Partial<Record<keyof OnboardingForm, string>>;
 
 export default function OnboardingIndexPage() {
     const router = useRouter();
-    const dispatch = useAppDispatch();
-    const onboardingData = useAppSelector((state) => state.appInstitute.onboarding.data);
-    const loading = useAppSelector((state) => state.appInstitute.onboarding.loading);
-    const saving = useAppSelector((state) => state.appInstitute.onboarding.loading);
+    const { data: onboardingData, isLoading: loading } = useOnboardingInstitute();
+    const submitOnboardingMutation = useSubmitOnboarding();
+    const saving = submitOnboardingMutation.isPending;
     const [errors, setErrors] = useState<FieldError>({});
     const [form, setForm] = useState<OnboardingForm>({
         name: "",
@@ -61,37 +59,37 @@ export default function OnboardingIndexPage() {
     });
 
     useEffect(() => {
-        void dispatch(fetchOnboardingInstitute());
-    }, [dispatch]);
+        if (!onboardingData) return;
 
-    useEffect(() => {
-        const data = onboardingData as any;
-        if (!data) return;
-
-        if (data.isOnboarded) {
+        // If upstream flag says onboarding is complete, navigate away
+        if ((onboardingData as Record<string, unknown>)!["isOnboarded"]) {
             router.push("/overview");
             return;
         }
 
-        setForm({
-            name: data.name ?? "",
-            phone: data.phone ?? "",
-            addressLine1: data.address?.addressLine1 ?? "",
-            addressLine2: data.address?.addressLine2 ?? "",
-            city: data.address?.city ?? "",
-            state: data.address?.state ?? "",
-            region: data.address?.region ?? "",
-            postalCode: data.address?.postalCode ?? "",
-            country: data.address?.country ?? "India",
-            countryCode: data.address?.countryCode ?? "",
-            whatsapp: data.whatsapp ?? "",
-            description: data.description ?? "",
-            website: data.socialLinks?.website ?? "",
-            facebook: data.socialLinks?.facebook ?? "",
-            instagram: data.socialLinks?.instagram ?? "",
-            youtube: data.socialLinks?.youtube ?? "",
-            linkedin: data.socialLinks?.linkedin ?? "",
-        });
+        const id = window.setTimeout(() => {
+            setForm({
+                name: (onboardingData as any)?.name ?? "",
+                phone: (onboardingData as any)?.phone ?? "",
+                addressLine1: (onboardingData as any)?.address?.addressLine1 ?? "",
+                addressLine2: (onboardingData as any)?.address?.addressLine2 ?? "",
+                city: (onboardingData as any)?.address?.city ?? "",
+                state: (onboardingData as any)?.address?.state ?? "",
+                region: (onboardingData as any)?.address?.region ?? "",
+                postalCode: (onboardingData as any)?.address?.postalCode ?? "",
+                country: (onboardingData as any)?.address?.country ?? "India",
+                countryCode: (onboardingData as any)?.address?.countryCode ?? "",
+                whatsapp: (onboardingData as any)?.whatsapp ?? "",
+                description: (onboardingData as any)?.description ?? "",
+                website: (onboardingData as any)?.socialLinks?.website ?? "",
+                facebook: (onboardingData as any)?.socialLinks?.facebook ?? "",
+                instagram: (onboardingData as any)?.socialLinks?.instagram ?? "",
+                youtube: (onboardingData as any)?.socialLinks?.youtube ?? "",
+                linkedin: (onboardingData as any)?.socialLinks?.linkedin ?? "",
+            });
+        }, 0);
+
+        return () => clearTimeout(id);
     }, [onboardingData, router]);
 
     const setValue = (key: keyof OnboardingForm, value: string) => {
@@ -115,7 +113,7 @@ export default function OnboardingIndexPage() {
     const submit = async () => {
         if (!validate()) return;
         try {
-            await dispatch(submitOnboarding({
+            await submitOnboardingMutation.mutateAsync({
                 ...form,
                 address: {
                     addressLine1: form.addressLine1,
@@ -127,12 +125,12 @@ export default function OnboardingIndexPage() {
                     country: form.country,
                     countryCode: form.countryCode,
                 },
-            })).unwrap();
+            });
 
             toast.success("Institute setup complete!");
             router.push("/overview");
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Network error. Please try again.");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Network error. Please try again.");
         }
     };
 

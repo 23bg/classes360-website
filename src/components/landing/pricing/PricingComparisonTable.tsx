@@ -12,11 +12,13 @@ import {
 const columns = ["starter", "team", "growth", "scale"] as const;
 const rows = [
     "users",
+    "students",
+    "enquiries",
     "enquiryTracking",
     "studentRecords",
     "coursesBatches",
     "feeTracking",
-    "whatsAppAlerts",
+    "alerts",
     "emailAlerts",
     "dataOwnership",
     "support",

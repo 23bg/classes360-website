@@ -146,6 +146,29 @@ export function NavMain({
     const toStepId = (title: string) =>
         `dashboard-nav-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 
+    // Manage open state for dropdowns using a top-level map to avoid hooks inside loops
+    const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => {
+        const map: Record<string, boolean> = {};
+        items.forEach((it) => {
+            map[it.title] = !!(it.children?.some((c) => c.isActive));
+        });
+        return map;
+    });
+
+    useEffect(() => {
+        const id = window.setTimeout(() => {
+            setOpenMap((prev) => {
+                const next: Record<string, boolean> = {};
+                items.forEach((it) => {
+                    next[it.title] = !!(it.children?.some((c) => c.isActive)) || Boolean(prev[it.title]);
+                });
+                return next;
+            });
+        }, 0);
+
+        return () => clearTimeout(id);
+    }, [items]);
+
     return (
         <SidebarGroup>
             {menuTitle && <SidebarGroupLabel>{menuTitle}</SidebarGroupLabel>}
@@ -154,14 +177,7 @@ export function NavMain({
                 {items.map((item) => {
                     const hasChildren = !!item.children?.length;
 
-                    const defaultOpen =
-                        item.children?.some((c) => c.isActive) || false;
-
-                    const [open, setOpen] = useState(defaultOpen);
-
-                    useEffect(() => {
-                        if (defaultOpen) setOpen(true);
-                    }, [defaultOpen]);
+                    const open = !!openMap[item.title];
 
                     return (
                         <SidebarMenuItem key={item.title}>
@@ -187,7 +203,7 @@ export function NavMain({
                                     <SidebarMenuButton
                                         tooltip={item.title}
                                         onClick={() =>
-                                            setOpen((prev) => !prev)
+                                            setOpenMap((prev) => ({ ...prev, [item.title]: !prev[item.title] }))
                                         }
                                     >
                                         <div className="flex items-center justify-between w-full">

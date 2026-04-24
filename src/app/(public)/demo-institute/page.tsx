@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { DEMO_VIDEO_EMBED_URL, DEMO_VIDEO_URL } from "@/constants/external-links";
+
 
 export const metadata: Metadata = {
     title: "Demo Institute - Classes360",
@@ -22,7 +22,7 @@ export default function DemoInstitutePage() {
             <div className="mt-8 rounded-xl border bg-muted/20 p-3">
                 <div className="aspect-video overflow-hidden rounded-lg border bg-background">
                     <iframe
-                        src={DEMO_VIDEO_EMBED_URL}
+                        src={process.env.NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL || "#"}
                         title="Classes360 demo video"
                         className="h-full w-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -37,7 +37,7 @@ export default function DemoInstitutePage() {
                     <Link href="/signup">Start Free Trial</Link>
                 </Button>
                 <Button asChild variant="outline">
-                    <Link href={DEMO_VIDEO_URL} target="_blank" rel="noopener noreferrer">Open on YouTube</Link>
+                    <Link href={process.env.NEXT_PUBLIC_DEMO_VIDEO_URL || "#"} target="_blank" rel="noopener noreferrer">Open on YouTube</Link>
                 </Button>
             </div>
         </main>

@@ -137,7 +137,11 @@ export const useGetSession = (enabled = true) => {
 
     useEffect(() => {
         if (!enabled) return;
-        void fetchSession();
+        const id = window.setTimeout(() => {
+            void fetchSession();
+        }, 0);
+
+        return () => clearTimeout(id);
     }, [enabled, fetchSession]);
 
     return useMemo(

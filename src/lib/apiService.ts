@@ -1,7 +1,8 @@
 import axios from "axios";
-import api from "./axios";
+
 import { ApiResponse } from "../types/api";
 import { AppError } from "@/lib/utils/error";
+import { api } from "./axios";
 
 async function apiService<T>(
   method: "get" | "post" | "put" | "patch" | "delete",

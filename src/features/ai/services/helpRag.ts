@@ -24,23 +24,31 @@ const toSearchableDoc = (doc: HelpDoc): SearchableDoc => ({
     faqText: (doc.faqs ?? []).map((faq) => `${faq.question} ${faq.answer}`).join(" "),
 });
 
-const searchableDocs = helpDocs.map(toSearchableDoc);
+let fuseInstance: Fuse<SearchableDoc> | null = null;
 
-const fuse = new Fuse(searchableDocs, {
-    includeScore: true,
-    shouldSort: true,
-    threshold: 0.35,
-    minMatchCharLength: 2,
-    ignoreLocation: true,
-    keys: [
-        { name: "title", weight: 0.35 },
-        { name: "description", weight: 0.2 },
-        { name: "overview", weight: 0.15 },
-        { name: "keywords", weight: 0.1 },
-        { name: "sectionText", weight: 0.15 },
-        { name: "faqText", weight: 0.05 },
-    ],
-});
+const getFuse = () => {
+    if (fuseInstance) return fuseInstance;
+
+    const searchableDocs = helpDocs.map(toSearchableDoc);
+
+    fuseInstance = new Fuse(searchableDocs, {
+        includeScore: true,
+        shouldSort: true,
+        threshold: 0.35,
+        minMatchCharLength: 2,
+        ignoreLocation: true,
+        keys: [
+            { name: "title", weight: 0.35 },
+            { name: "description", weight: 0.2 },
+            { name: "overview", weight: 0.15 },
+            { name: "keywords", weight: 0.1 },
+            { name: "sectionText", weight: 0.15 },
+            { name: "faqText", weight: 0.05 },
+        ],
+    });
+
+    return fuseInstance;
+};
 
 const toContextSnippet = (doc: HelpDoc) => {
     const steps = doc.steps
@@ -72,6 +80,7 @@ export const searchHelpDocs = (query: string, limit = 3) => {
     const cleanQuery = query.trim();
     if (!cleanQuery) return [] as HelpDoc[];
 
+    const fuse = getFuse();
     const results = fuse.search(cleanQuery, { limit });
 
     return results

@@ -1,30 +1,12 @@
-// import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-// import { loginUser, signupUser, verifyOtp } from "../slices/authSlice";
-
-// export const useAuth = () => {
-//     const dispatch = useAppDispatch();
-//     const { user, loading, error, isAuthenticated } = useAppSelector(
-//         (state) => state.auth
-//     );
-
-//     const login = (data: { email: string; }) =>
-//         dispatch(loginUser(data));
-//     const signup = (data: { name: string; email: string; phoneNumber: string }) =>
-//         dispatch(signupUser(data));
-//     const verifyOTP = (data: { email: string, otp: string }) => dispatch(verifyOtp(data));
-
-
-//     return { user, loading, error, isAuthenticated, login, signup, verifyOTP };
-// };
-
 import { useState } from "react";
-import { api } from "@/lib/api";
-import { useAppSelector } from "@/hooks/reduxHooks";
+import { api } from "@/lib/axios";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
 export const useAuth = () => {
-    const { user } = useAppSelector((state) => state.auth);
+    const { data, isLoading, error: authQueryError } = useCurrentUser();
+    const user = data?.user ?? null;
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<unknown>(null);
+    const [mutationError, setMutationError] = useState<unknown>(null);
 
     // Generic wrapper for dispatch + callbacks
     const withCallbacks = async <T>(request: Promise<T>, callbacks?: {
@@ -36,12 +18,12 @@ export const useAuth = () => {
 
         try {
             setLoading(true);
-            setError(null);
+            setMutationError(null);
             const result = await request;
             onSuccess?.(result);
             return result;
         } catch (err) {
-            setError(err);
+            setMutationError(err);
             onError?.(err);
             throw err;
         } finally {
@@ -70,8 +52,8 @@ export const useAuth = () => {
 
     return {
         user,
-        loading,
-        error,
+        loading: loading || isLoading,
+        error: authQueryError ?? mutationError,
         login,
         signup,
         verifyEmail,

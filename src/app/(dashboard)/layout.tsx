@@ -1,9 +1,6 @@
 import React from "react";
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { readSessionFromCookie } from "@/lib/auth/auth";
-import { instituteService } from "@/features/institute/instituteApi";
-import { userService } from "@/features/user/userService";
+import AuthGuard from "@/components/auth/AuthGuard";
 import { DashboardLayoutWithProviders } from "@/providers/DashboardLayoutWithProviders";
 
 export const metadata: Metadata = {
@@ -16,27 +13,17 @@ export const metadata: Metadata = {
     },
 };
 
-export default async function AppLayout({
+export default function AppLayout({
     children
 }: {
     children: React.ReactNode
 }) {
-    const session = await readSessionFromCookie();
-    if (!session) {
-        redirect("/login");
-    }
-
-    const institute = await instituteService.getOverview(session.instituteId);
-    if (!institute.isOnboarded) {
-        redirect("/onboarding");
-    }
-
-    const firstLogin = await userService.getUserFirstLogin(session.userId);
-
     return (
-        <DashboardLayoutWithProviders showFirstLoginShowcase={Boolean(firstLogin)}>
-            {children}
-        </DashboardLayoutWithProviders>
+        <AuthGuard>
+            <DashboardLayoutWithProviders showFirstLoginShowcase={true}>
+                {children}
+            </DashboardLayoutWithProviders>
+        </AuthGuard>
     );
 }
 

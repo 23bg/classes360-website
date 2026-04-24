@@ -1,96 +1,76 @@
-<<<<<<< Updated upstream
- import axios, { AxiosInstance } from 'axios';
-
-const DEFAULT_BASE_URL = '/api/v1';
-=======
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API } from "@/constants/api";
 import { getApiUrl } from "@/lib/api/url";
 
-const api = axios.create({
-    baseURL: getApiUrl(API.BASE_V1),
-    headers: {
-        "Content-Type": "application/json",
-    },
-    withCredentials: true,
-    timeout: 10000,
-});
->>>>>>> Stashed changes
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
 
-const resolveBaseURL = (): string => {
-    const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
-    if (!configured) {
-        return DEFAULT_BASE_URL;
+const toApiPath = (value: string) => {
+    if (value.startsWith("/api/")) {
+        return value;
     }
 
-    const normalized = configured.replace(/\/+$/, '');
-
-    // In the browser, keep auth/data requests same-origin to avoid CORS/network errors.
-    if (typeof window !== 'undefined') {
-        if (normalized.startsWith('/')) {
-            return normalized;
-        }
-
-        try {
-            const parsed = new URL(normalized, window.location.origin);
-            if (parsed.origin !== window.location.origin) {
-                return DEFAULT_BASE_URL;
-            }
-
-            return parsed.pathname.replace(/\/+$/, '') || DEFAULT_BASE_URL;
-        } catch {
-            return DEFAULT_BASE_URL;
-        }
-    }
-
-    return normalized;
+    const normalized = value.startsWith("/") ? value : `/${value}`;
+    return `${API.BASE_V1}${normalized}`;
 };
 
-const baseURL = resolveBaseURL();
+const resolveUrl = (value: string) => (isAbsoluteUrl(value) ? value : getApiUrl(toApiPath(value)));
 
-export const api: AxiosInstance = axios.create({
-    baseURL,
-    withCredentials: true, // Include cookies in requests
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
-
-// Request interceptor: Add auth token if needed (mostly in HttpOnly cookies)
-api.interceptors.request.use(
-    (config) => {
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-// Response interceptor: Handle 401 and token refresh
-api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
-
-        // If 401 and not already retried, attempt refresh
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            try {
-                // Attempt to refresh the token
-                await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
-
-                // Retry original request
-                return api(originalRequest);
-            } catch (refreshError) {
-                // Redirect to login on refresh failure
-                if (typeof window !== 'undefined') {
-                    window.location.href = '/login';
-                }
-                return Promise.reject(refreshError);
-            }
-        }
-
-        return Promise.reject(error);
+const parseResponseBody = async (response: Response) => {
+    if (response.status === 204) {
+        return null;
     }
-);
 
-export default api;
+    const contentType = response.headers.get("content-type") ?? "";
+
+    if (contentType.includes("application/json")) {
+        return response.json();
+    }
+
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+};
+
+const requestRefresh = async () => {
+    const refreshResponse = await fetch(resolveUrl("/auth/refresh"), {
+        method: "POST",
+        credentials: "include",
+    });
+
+    if (!refreshResponse.ok) {
+        throw new Error("API Error");
+    }
+
+    return parseResponseBody(refreshResponse);
+};
+
+export async function apiFetch<T = unknown>(url: string, options: RequestInit = {}): Promise<T> {
+    const requestOptions: RequestInit = {
+        ...options,
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers ?? {}),
+        },
+    };
+
+    let response = await fetch(resolveUrl(url), requestOptions);
+
+    if (response.status === 401) {
+        await requestRefresh();
+        response = await fetch(resolveUrl(url), requestOptions);
+    }
+
+    if (!response.ok) {
+        throw new Error("API Error");
+    }
+
+    return parseResponseBody(response) as Promise<T>;
+}

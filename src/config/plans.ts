@@ -2,21 +2,19 @@ export type PlanType = "STARTER" | "TEAM" | "GROWTH" | "SCALE";
 export type PricingVersion = "LEGACY" | "CURRENT";
 
 export type PlanPricing = {
-    monthly: number;
-    yearly: number;
+    monthly: number | null;
+    yearly: number | null;
 };
 
 type PlanConfig = {
     key: PlanType;
     name: string;
-    priceMonthly: number;
-    priceYearly: number;
+    priceMonthly: number | null;
+    priceYearly: number | null;
     /** null means unlimited */
     userLimit: number | null;
-    whatsappMonthlyLimit: number;
-    whatsappDailyLimit: number;
-    /** cost in INR per extra conversation over monthly limit */
-    extraConversationCost: number;
+    studentLimit: number | null;
+    enquiryLimit: number | null;
     tagline: string;
 };
 
@@ -24,48 +22,42 @@ export const PLAN_CONFIG: Record<PlanType, PlanConfig> = {
     STARTER: {
         key: "STARTER",
         name: "Starter",
-        priceMonthly: 999,
-        priceYearly: 9990,
-        userLimit: 1,
-        whatsappMonthlyLimit: 500,
-        whatsappDailyLimit: 17,
-        extraConversationCost: 0,
+        priceMonthly: 1999,
+        priceYearly: 19990,
+        userLimit: 2,
+        studentLimit: 250,
+        enquiryLimit: 1000,
         tagline: "For solo institute owners starting admissions management",
     },
     TEAM: {
         key: "TEAM",
         name: "Team",
-        priceMonthly: 2499,
-        priceYearly: 24990,
-        userLimit: 10,
-        whatsappMonthlyLimit: 2500,
-        whatsappDailyLimit: 84,
-        extraConversationCost: 0,
+        priceMonthly: 3999,
+        priceYearly: 39990,
+        userLimit: 8,
+        studentLimit: 800,
+        enquiryLimit: 4000,
         tagline: "For small admission teams collaborating daily",
     },
     GROWTH: {
         key: "GROWTH",
         name: "Growth",
-        priceMonthly: 4999,
-        priceYearly: 49990,
-        userLimit: 25,
-        whatsappMonthlyLimit: 7500,
-        whatsappDailyLimit: 250,
-        extraConversationCost: 0,
+        priceMonthly: 7999,
+        priceYearly: 79990,
+        userLimit: 20,
+        studentLimit: 2000,
+        enquiryLimit: 10000,
         tagline: "For institutes scaling admissions volume",
     },
     SCALE: {
         key: "SCALE",
         name: "Scale",
-        // Enterprise / custom pricing — base price is handled via sales.
-        priceMonthly: 0,
-        priceYearly: 0,
+        // Custom enterprise pricing is handled via sales.
+        priceMonthly: null,
+        priceYearly: null,
         userLimit: null,
-        // Pay-as-you-go WhatsApp handling: no included monthly quota
-        whatsappMonthlyLimit: 0,
-        whatsappDailyLimit: 300,
-        // cost per extra conversation (INR) when applicable for pay-as-you-go
-        extraConversationCost: 0.5,
+        studentLimit: null,
+        enquiryLimit: null,
         tagline: "For large institutes with multiple counselors and high volume",
     },
 };
@@ -83,16 +75,19 @@ export const PLAN_PRICING_LEGACY: Record<PlanType, PlanPricing> = {
 };
 
 export const PLAN_PRICING_CURRENT: Record<PlanType, PlanPricing> = {
-    STARTER: { monthly: 999, yearly: 9990 },
-    TEAM: { monthly: 2499, yearly: 24990 },
-    GROWTH: { monthly: 4999, yearly: 49990 },
-    SCALE: { monthly: 0, yearly: 0 },
+    STARTER: { monthly: 1999, yearly: 19990 },
+    TEAM: { monthly: 3999, yearly: 39990 },
+    GROWTH: { monthly: 7999, yearly: 79990 },
+    SCALE: { monthly: null, yearly: null },
 };
 
 export const AUTOMATION_PACK_PRICING: PlanPricing = {
     monthly: 499,
     yearly: 4990,
 };
+
+export const EXTRA_USER_COST = 299;
+export const EXTRA_STUDENT_COST = 5;
 
 export const isGrandfatheredSubscription = (createdAt?: Date | null): boolean => {
     if (!createdAt) {

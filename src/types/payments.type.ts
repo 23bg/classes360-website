@@ -1,4 +1,4 @@
-import { PaymentStatus } from './prisma.types';
+import { PaymentStatus } from './domain.enums';
 
 export interface Payment {
     id: string;

@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 import {
-    activateWhatsapp,
-    connectWhatsapp,
-    fetchWhatsappIntegration,
-    verifyWhatsapp,
-} from "@/features/dashboard/dashboardSlice";
+    useWhatsappIntegration,
+} from "@/features/dashboard/hooks/queries/useDashboardData";
+import {
+    useActivateWhatsapp,
+    useConnectWhatsapp,
+    useVerifyWhatsapp,
+} from "@/features/dashboard/hooks/mutations/useDashboardMutations";
 
 type WhatsAppIntegrationState = {
     mode: "CLASSES360_SHARED" | "INSTITUTE_CUSTOM";
@@ -33,10 +34,11 @@ const DEFAULT_STATE: WhatsAppIntegrationState = {
 };
 
 export default function WhatsAppIntegrationPage() {
-    const dispatch = useAppDispatch();
-    const state = useAppSelector((appState) => appState.dashboard.whatsapp.data);
-    const loading = useAppSelector((appState) => appState.dashboard.whatsapp.loading);
-    const mutating = useAppSelector((appState) => appState.dashboard.whatsapp.mutation.loading);
+    const { data: state, isLoading: loading } = useWhatsappIntegration();
+    const connectMutation = useConnectWhatsapp();
+    const verifyMutation = useVerifyWhatsapp();
+    const activateMutation = useActivateWhatsapp();
+    const mutating = connectMutation.isPending || verifyMutation.isPending || activateMutation.isPending;
     const connecting = mutating;
     const verifying = mutating;
     const activating = mutating;
@@ -47,44 +49,40 @@ export default function WhatsAppIntegrationPage() {
     const [businessAccountId, setBusinessAccountId] = useState("");
 
     useEffect(() => {
-        void dispatch(fetchWhatsappIntegration());
-    }, [dispatch]);
-
-    useEffect(() => {
         const current = state ?? DEFAULT_STATE;
-        setPhoneNumber(current.connectedNumber ?? "");
-        setPhoneNumberId(current.phoneNumberId ?? "");
-        setBusinessAccountId(current.businessAccountId ?? "");
+        const id = setTimeout(() => {
+            setPhoneNumber(current.connectedNumber ?? "");
+            setPhoneNumberId(current.phoneNumberId ?? "");
+            setBusinessAccountId(current.businessAccountId ?? "");
+        }, 0);
+        return () => clearTimeout(id);
     }, [state]);
 
     const connect = async () => {
         try {
-            const response = await dispatch(connectWhatsapp(phoneNumber)).unwrap();
+            const response: any = await connectMutation.mutateAsync(phoneNumber);
             const otpHint = response.otpHint;
             toast.success(otpHint ? `OTP sent. Use ${otpHint} in this environment.` : "OTP sent");
-            await dispatch(fetchWhatsappIntegration()).unwrap();
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Unable to initiate connection");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Unable to initiate connection");
         }
     };
 
     const verify = async () => {
         try {
-            await dispatch(verifyWhatsapp(otp)).unwrap();
+            await verifyMutation.mutateAsync(otp);
             toast.success("Number verified");
-            await dispatch(fetchWhatsappIntegration()).unwrap();
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Unable to verify OTP");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Unable to verify OTP");
         }
     };
 
     const activate = async () => {
         try {
-            await dispatch(activateWhatsapp({ phoneNumberId, businessAccountId })).unwrap();
+            await activateMutation.mutateAsync({ phoneNumberId, businessAccountId });
             toast.success("Institute WhatsApp number activated");
-            await dispatch(fetchWhatsappIntegration()).unwrap();
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Unable to activate number");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Unable to activate number");
         }
     };
 

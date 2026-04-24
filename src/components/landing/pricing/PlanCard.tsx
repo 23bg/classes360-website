@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import type { PlanType } from "@/config/plans";
 import { PLAN_CONFIG } from "@/config/plans";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,11 +22,19 @@ export default function PlanCard({
 }: PlanCardProps) {
     const t = useTranslations("pricing");
     const planKey = plan.key.toLowerCase();
-    const userLimit = PLAN_CONFIG[plan.key].userLimit;
+    const planConfig = PLAN_CONFIG[plan.key];
 
-    const usersLabel = userLimit === null
+    const usersLabel = planConfig.userLimit === null
         ? t(`plans.${planKey}.usersUnlimited`)
-        : t("plans.usersUpTo", { count: userLimit });
+        : t("plans.usersUpTo", { count: planConfig.userLimit });
+
+    const studentsLabel = planConfig.studentLimit === null
+        ? t("plans.unlimitedStudents")
+        : t("plans.studentsUpTo", { count: planConfig.studentLimit });
+
+    const enquiriesLabel = planConfig.enquiryLimit === null
+        ? t("plans.unlimitedEnquiries")
+        : t("plans.enquiriesUpTo", { count: planConfig.enquiryLimit });
 
     const bestFitLines = [
         t(`plans.${planKey}.whenToUseLine1`),
@@ -60,9 +67,17 @@ export default function PlanCard({
                 <div className="space-y-2">
                     <h3 className="text-lg font-semibold">{t(`plans.${planKey}.name`)}</h3>
                     <p className="text-sm text-muted-foreground">{t(`plans.${planKey}.description`)}</p>
-                    <p className="inline-flex rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                        {usersLabel}
-                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                            {usersLabel}
+                        </span>
+                        <span className="inline-flex rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                            {studentsLabel}
+                        </span>
+                        <span className="inline-flex rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                            {enquiriesLabel}
+                        </span>
+                    </div>
                 </div>
             </CardHeader>
 

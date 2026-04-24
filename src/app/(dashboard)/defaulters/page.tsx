@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchDefaulters } from "@/features/dashboard/dashboardSlice";
+import { useDefaulters } from "@/features/dashboard/hooks/queries/useDashboardData";
 
 type Defaulter = {
     studentId: string;
@@ -21,17 +20,12 @@ type Defaulter = {
 const PAGE_SIZE = 10;
 
 export default function DefaultersPage() {
-    const dispatch = useAppDispatch();
-    const defaulters = useAppSelector((state) => state.dashboard.defaulters.data);
-    const loading = useAppSelector((state) => state.dashboard.defaulters.loading);
+    const { data: defaulters = [], isLoading: loading } = useDefaulters();
     const [page, setPage] = useState(1);
 
     useEffect(() => {
-        void dispatch(fetchDefaulters());
-    }, [dispatch]);
-
-    useEffect(() => {
-        setPage(1);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
     }, [defaulters.length]);
 
     const formatCurrency = (value: number) => `₹${value.toLocaleString("en-IN")}`;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,8 @@ import { Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { deleteTeacher as deleteTeacherThunk, fetchTeachers, saveTeacher as saveTeacherThunk } from "@/features/dashboard/dashboardSlice";
+import { useDeleteTeacher, useSaveTeacher, useTeachers } from "@/features/dashboard/useTeachers";
+import { TeacherForm, useTeacherUiStore } from "@/stores/teacherUiStore";
 
 type Teacher = {
     id: string;
@@ -22,28 +22,28 @@ type Teacher = {
     bio?: string | null;
 };
 
-type TeacherForm = { name: string; subject: string; bio: string };
-
 const emptyForm: TeacherForm = { name: "", subject: "", bio: "" };
 const PAGE_SIZE = 10;
 
 export default function TeachersPage() {
-    const dispatch = useAppDispatch();
-    const teachers = useAppSelector((state) => state.dashboard.teachers.data);
-    const loading = useAppSelector((state) => state.dashboard.teachers.loading);
-    const saving = useAppSelector((state) => state.dashboard.teachers.mutation.loading);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [form, setForm] = useState<TeacherForm>(emptyForm);
-    const [page, setPage] = useState(1);
+    const { data: teachers = [], isLoading: loading } = useTeachers();
+    const saveTeacherMutation = useSaveTeacher();
+    const deleteTeacherMutation = useDeleteTeacher();
+
+    const dialogOpen = useTeacherUiStore((state) => state.dialogOpen);
+    const editingId = useTeacherUiStore((state) => state.editingId);
+    const form = useTeacherUiStore((state) => state.form);
+    const page = useTeacherUiStore((state) => state.page);
+    const setDialogOpen = useTeacherUiStore((state) => state.setDialogOpen);
+    const setEditingId = useTeacherUiStore((state) => state.setEditingId);
+    const setForm = useTeacherUiStore((state) => state.setForm);
+    const setPage = useTeacherUiStore((state) => state.setPage);
+    const resetUi = useTeacherUiStore((state) => state.reset);
 
     useEffect(() => {
-        void dispatch(fetchTeachers());
-    }, [dispatch]);
-
-    useEffect(() => {
-        setPage(1);
-    }, [teachers.length]);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
+    }, [teachers.length, setPage]);
 
     const paginatedTeachers = teachers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -66,27 +66,28 @@ export default function TeachersPage() {
         }
 
         try {
-            await dispatch(saveTeacherThunk({
+            await saveTeacherMutation.mutateAsync({
                 editingId,
                 body: { name: form.name, subject: form.subject || undefined, bio: form.bio || undefined },
-            })).unwrap();
+            });
             toast.success(editingId ? "Teacher updated" : "Teacher added");
-            setDialogOpen(false);
-            await dispatch(fetchTeachers()).unwrap();
+            resetUi();
         } catch (error: any) {
-            toast.error(error?.response?.data?.error?.message ?? "Network error");
+            toast.error(error?.message ?? error?.response?.data?.error?.message ?? "Network error");
         }
     };
 
     const deleteTeacher = async (id: string) => {
         try {
-            await dispatch(deleteTeacherThunk(id)).unwrap();
+            await deleteTeacherMutation.mutateAsync(id);
             toast.success("Teacher deleted");
-            await dispatch(fetchTeachers()).unwrap();
         } catch (error: any) {
-            toast.error(error?.response?.data?.error?.message ?? "Network error");
+            toast.error(error?.message ?? error?.response?.data?.error?.message ?? "Network error");
         }
     };
+
+    const saving = saveTeacherMutation.isPending;
+    const deleting = deleteTeacherMutation.isPending;
 
     const columns = useMemo<Column<Teacher>[]>(() => [
         {

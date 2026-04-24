@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, PlusCircle, UserPlus, HandCoins, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,7 @@ import {
     CommandSeparator,
 } from "@/components/ui/command";
 import ROUTES from "@/constants/routes";
-import { searchGlobal } from "@/app/actions/globalSearchAction";
-import type { SearchResults } from "@/features/globalSearch/globalSearchApi";
+import { getGlobalSearchResults, type SearchResults } from "@/features/globalSearch/globalSearchApi";
 
 const EMPTY_RESULTS: SearchResults = {
     leads: [],
@@ -31,13 +30,10 @@ export default function GlobalSearch() {
     const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS);
     const [loading, setLoading] = useState(false);
 
-    const hasAnyResult = useMemo(
-        () => results.leads.length > 0 || results.students.length > 0 || results.courses.length > 0,
-        [results]
-    );
+    // derived value not needed eagerly
 
     useEffect(() => {
-        setMounted(true);
+        const id = window.setTimeout(() => setMounted(true), 0);
 
         const onKeyDown = (event: KeyboardEvent) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -47,19 +43,26 @@ export default function GlobalSearch() {
         };
 
         window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
+        return () => {
+            clearTimeout(id);
+            window.removeEventListener("keydown", onKeyDown);
+        };
     }, []);
 
     useEffect(() => {
         if (!open || query.trim().length < 2) {
+            setResults(EMPTY_RESULTS);
+            setLoading(false);
             return;
         }
 
         const timer = setTimeout(async () => {
             try {
                 setLoading(true);
-                const res = await searchGlobal(query);
+                const res = await getGlobalSearchResults(query);
                 setResults(res ?? EMPTY_RESULTS);
+            } catch {
+                setResults(EMPTY_RESULTS);
             } finally {
                 setLoading(false);
             }

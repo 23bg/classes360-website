@@ -90,7 +90,7 @@ function DashboardShowcaseStarter({ enabled }: { enabled: boolean }) {
 
 export default function DashboardShowcaseTour({ enabled, children }: DashboardShowcaseTourProps) {
     const completeShowcase = async () => {
-        await fetch("/api/v1/dashboard/showcase/complete", { method: "POST" });
+        await fetch(getApiUrl("/api/v1/dashboard/showcase/complete"), { method: "POST" });
     };
 
     return (

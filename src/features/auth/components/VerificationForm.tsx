@@ -18,6 +18,7 @@ import {
     CardContent,
 } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { getApiUrl } from "@/lib/api/url";
 
 const otpSchema = z.object({
     otp: z.string().regex(/^\d{5}$/, "OTP must be 5 digits"),
@@ -45,22 +46,26 @@ export default function VerificationForm() {
     const [mode, setMode] = useState<"emailVerification" | "mfa">("emailVerification");
 
     useEffect(() => {
-        const mfaEmail = localStorage.getItem("mfa_email");
-        if (mfaEmail) {
-            setEmail(mfaEmail);
-            setMode("mfa");
-            return;
-        }
+        const id = window.setTimeout(() => {
+            const mfaEmail = localStorage.getItem("mfa_email");
+            if (mfaEmail) {
+                setEmail(mfaEmail);
+                setMode("mfa");
+                return;
+            }
 
-        const verificationEmail = localStorage.getItem("verification_email");
-        if (verificationEmail) {
-            setEmail(verificationEmail);
-            setMode("emailVerification");
-            return;
-        }
+            const verificationEmail = localStorage.getItem("verification_email");
+            if (verificationEmail) {
+                setEmail(verificationEmail);
+                setMode("emailVerification");
+                return;
+            }
 
-        toast.error("Verification session expired. Please try again.");
-        router.push(ROUTES.AUTH.LOG_IN);
+            toast.error("Verification session expired. Please try again.");
+            router.push(ROUTES.AUTH.LOG_IN);
+        }, 0);
+
+        return () => clearTimeout(id);
     }, [router]);
 
     const form = useForm<OtpFormData>({
@@ -73,7 +78,7 @@ export default function VerificationForm() {
         if (!email) return;
 
         if (mode === "mfa") {
-            fetch("/api/v1/auth/mfa/verify", {
+            fetch(getApiUrl("/api/v1/auth/mfa/verify"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -103,8 +108,9 @@ export default function VerificationForm() {
                     localStorage.removeItem("verification_email");
                     router.push(ROUTES.AUTH.LOG_IN);
                 },
-                onError: (err: any) => {
-                    toast.error(typeof err === "string" ? err : err?.message || "Invalid OTP. Please try again.");
+                onError: (err: unknown) => {
+                    const message = err instanceof Error ? err.message : typeof err === "string" ? err : "Invalid OTP. Please try again.";
+                    toast.error(message);
                 },
             }
         );

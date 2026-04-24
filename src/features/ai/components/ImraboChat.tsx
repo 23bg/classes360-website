@@ -6,6 +6,7 @@ import { Bot, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API } from "@/constants/api";
+import { getApiUrl } from "@/lib/api/url";
 import {
     Sheet,
     SheetContent,
@@ -60,6 +61,7 @@ export default function ImraboChat() {
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const endRef = useRef<HTMLDivElement | null>(null);
+    const idCounter = useRef(0);
 
     useEffect(() => {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-40)));
@@ -67,8 +69,9 @@ export default function ImraboChat() {
     }, [messages]);
 
     const streamAssistantResponse = async (userText: string) => {
-        const userId = `${Date.now()}-user`;
-        const assistantId = `${Date.now()}-assistant`;
+        const count = ++idCounter.current;
+        const userId = `u-${count}-user`;
+        const assistantId = `u-${count}-assistant`;
 
         setMessages((prev) => [
             ...prev,
@@ -79,7 +82,7 @@ export default function ImraboChat() {
         setIsSending(true);
 
         try {
-            const response = await fetch(`/api/v1${API.INTERNAL.AI.IMRABO_CHAT}`, {
+            const response = await fetch(getApiUrl(`/api/v1${API.INTERNAL.AI.IMRABO_CHAT}`), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

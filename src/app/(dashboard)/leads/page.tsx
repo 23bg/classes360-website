@@ -95,7 +95,8 @@ export default function LeadsPage() {
     useEffect(() => {
         const q = searchParams.get("query") ?? "";
         if (q && !query) {
-            setQuery(q);
+            const id = setTimeout(() => setQuery(q), 0);
+            return () => clearTimeout(id);
         }
     }, [searchParams, query]);
 
@@ -127,7 +128,8 @@ export default function LeadsPage() {
     }, [dispatch, editingLead?.id]);
 
     useEffect(() => {
-        setPage(1);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
     }, [status, query, from, to, leads.length]);
 
     const paginatedLeads = leads.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

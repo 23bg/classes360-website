@@ -4,9 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchIntegrations } from "@/features/dashboard/dashboardSlice";
+import { useIntegrations } from "@/features/dashboard/hooks/queries/useDashboardData";
 
 type IntegrationItem = {
     id: string;
@@ -25,17 +23,11 @@ const statusVariant = (status: IntegrationStatus) => {
 };
 
 export default function IntegrationsSettingsPage() {
-    const dispatch = useAppDispatch();
-    const items = useAppSelector((state) => state.dashboard.integrations.data);
-    const loading = useAppSelector((state) => state.dashboard.integrations.loading);
-
-    useEffect(() => {
-        void dispatch(fetchIntegrations());
-    }, [dispatch]);
+    const { data: items = [], isLoading: loading, refetch } = useIntegrations();
 
     const refresh = async () => {
         try {
-            await dispatch(fetchIntegrations()).unwrap();
+            await refetch();
         } catch {
             toast.error("Failed to load integrations");
         }

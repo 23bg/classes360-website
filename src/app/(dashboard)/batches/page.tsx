@@ -60,10 +60,10 @@ export default function BatchesPage() {
     const [form, setForm] = useState<BatchForm>(emptyForm);
     const [page, setPage] = useState(1);
     const { uploadFile, isLoading: uploadingFile } = useFileUpload();
-    const batches = batchesState?.rows ?? [];
-    const courses = batchesState?.courses ?? [];
-    const teachers = batchesState?.teachers ?? [];
-    const students = batchesState?.students ?? [];
+    const batches = (batchesState?.rows ?? []) as Batch[];
+    const courses = (batchesState?.courses ?? []) as Course[];
+    const teachers = (batchesState?.teachers ?? []) as Teacher[];
+    const students = (batchesState?.students ?? []) as Student[];
     const batchDetails = useAppSelector((state) => state.dashboard.batches.details.data);
     const batchNotes = batchDetails?.notes ?? [];
     const batchAttendance = batchDetails?.attendance ?? [];
@@ -78,7 +78,8 @@ export default function BatchesPage() {
     }, [dispatch, selectedBatch?.id]);
 
     useEffect(() => {
-        setPage(1);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
     }, [batches.length]);
 
     const paginatedBatches = batches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

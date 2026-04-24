@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPlanPricing, PLAN_CONFIG, PlanType, PricingVersion } from "@/config/plans";
-import type { BillingInterval } from "@/features/subscription/subscriptionApi";
+import type { BillingInterval } from "@/features/subscription/types";
 import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
 import {
     confirmBillingSubscription,
@@ -134,7 +134,7 @@ export default function BillingPage() {
     const selectedPricingVersion: PricingVersion = (summary?.pricingVersion as PricingVersion | undefined) ?? "CURRENT";
     const quoteCurrency = checkoutContext?.currency ?? (selectedProvider === "STRIPE" ? "USD" : "INR");
     const quotedPrice = useMemo(
-        () => getQuotedPrice(selectedPlan, selectedInterval, quoteCurrency, selectedPricingVersion),
+        () => getQuotedPrice(selectedPlan, selectedInterval, quoteCurrency, selectedPricingVersion) ?? 0,
         [quoteCurrency, selectedInterval, selectedPlan, selectedPricingVersion]
     );
     const quoteTax = useMemo(() => (checkoutContext?.taxRate ?? 0) * quotedPrice, [checkoutContext?.taxRate, quotedPrice]);
@@ -167,7 +167,7 @@ export default function BillingPage() {
             handler: async (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => {
                 setCheckoutState({ status: "pending", message: "Verifying payment with provider..." });
                 try {
-                    const result = await dispatch(
+                    const result: any = await dispatch(
                         confirmBillingSubscription({
                             provider: "RAZORPAY",
                             ...response,
@@ -201,7 +201,7 @@ export default function BillingPage() {
     const startCheckout = async (payload: { planType: PlanType; interval: BillingInterval; provider?: CheckoutProvider | null; invoiceId?: string | null }) => {
         try {
             setCheckoutState({ status: "opening", message: "Preparing checkout session..." });
-            const session = payload.invoiceId
+            const session: any = payload.invoiceId
                 ? await dispatch(retryBillingInvoice(payload.invoiceId)).unwrap()
                 : await dispatch(
                     createBillingSubscription({
@@ -229,7 +229,7 @@ export default function BillingPage() {
 
         setCheckoutState({ status: "pending", message: "Checking payment status..." });
         try {
-            const result = await dispatch(
+            const result: any = await dispatch(
                 confirmBillingSubscription({
                     provider: "STRIPE",
                     checkout_session_id: sessionId,
@@ -266,9 +266,9 @@ export default function BillingPage() {
     }, [manualRecoveryHandled, searchParams]);
 
     const methodLabels = billingMethods.map((method) => method.label).join(" · ");
-    const orderPlanPrice = selectedProvider === "STRIPE"
-        ? INTERNATIONAL_PRICING_USD[selectedPlan][selectedInterval === "YEARLY" ? "yearly" : "monthly"]
-        : getPlanPricing(selectedPlan, { version: selectedPricingVersion })[selectedInterval === "YEARLY" ? "yearly" : "monthly"];
+        const orderPlanPrice = selectedProvider === "STRIPE"
+            ? INTERNATIONAL_PRICING_USD[selectedPlan][selectedInterval === "YEARLY" ? "yearly" : "monthly"]
+            : (getPlanPricing(selectedPlan, { version: selectedPricingVersion })?.[selectedInterval === "YEARLY" ? "yearly" : "monthly"] ?? 0);
     const orderTaxAmount = orderPlanPrice * (checkoutContext?.taxRate ?? 0);
     const orderTotal = orderPlanPrice + orderTaxAmount;
 
@@ -296,7 +296,7 @@ export default function BillingPage() {
                         </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-3 lg:w-md">
-                        <Button variant="secondary" onClick={() => void generateBillingInvoice()} disabled={generatingInvoice || isBusy}>
+                        <Button variant="secondary" onClick={() => void dispatch(generateBillingInvoice({}))} disabled={generatingInvoice || isBusy}>
                             {generatingInvoice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Generate invoice
                         </Button>

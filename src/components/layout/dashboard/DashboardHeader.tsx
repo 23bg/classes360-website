@@ -9,8 +9,8 @@ import ImraboChat from "@/features/ai/components/ImraboChat";
 import UserMenu from "@/features/auth/components/UserMenu";
 import GlobalSearch from "@/components/layout/dashboard/GlobalSearch";
 import ROUTES from "@/constants/routes";
-import { Bell, Building2, CircleHelp } from "lucide-react";
-import api from "@/lib/axios";
+import { Bell, Building2 } from "lucide-react";
+import { api } from "@/lib/axios";
 import { API } from "@/constants/api";
 
 

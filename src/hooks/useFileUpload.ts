@@ -21,7 +21,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import api from '@/lib/api/client';
+import { api } from '@/lib/index';
 
 export interface UploadProgress {
   loaded: number;

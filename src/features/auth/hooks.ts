@@ -1,18 +1,23 @@
-import { useSelector } from 'react-redux';
-import type { RootState } from '@/store';
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
 /**
  * Custom hook to get current auth user from Redux
  * Use this in components to access current user state
  */
 export const useAuth = () => {
-    const { user, role } = useSelector((state: RootState) => state.auth);
+    const { data, isLoading, error } = useCurrentUser();
+
+    const user = data?.user ?? null;
+    const role = data?.role ?? null;
     const isAuthenticated = !!user;
 
     return {
         user,
         role,
         isAuthenticated,
+        isLoading,
+        isError: Boolean(error),
+        error,
     };
 };
 

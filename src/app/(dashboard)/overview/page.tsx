@@ -11,8 +11,8 @@ import { Loader2, IndianRupee, AlertTriangle, GraduationCap, UserPlus, Users } f
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import MetricCard from "@/components/layout/dashboard/MetricCard";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchOverview, postAnnouncement } from "@/features/dashboard/dashboardSlice";
+import { useDashboardOverview } from "@/features/dashboard/hooks/queries/useDashboardData";
+import { usePostAnnouncement } from "@/features/dashboard/hooks/mutations/useDashboardMutations";
 
 type Metrics = {
     leadsThisMonth: number;
@@ -55,10 +55,9 @@ type RecentLead = NonNullable<Metrics["recentLeads"]>[number];
 type RecentPayment = NonNullable<Metrics["recentPayments"]>[number];
 
 export default function DashboardPage() {
-    const dispatch = useAppDispatch();
-    const overview = useAppSelector((state) => state.dashboard.overview.data);
-    const loading = useAppSelector((state) => state.dashboard.overview.loading);
-    const postingAnnouncement = useAppSelector((state) => state.dashboard.overview.announcement.loading);
+    const { data: overview, isLoading: loading } = useDashboardOverview();
+    const postAnnouncementMutation = usePostAnnouncement();
+    const postingAnnouncement = postAnnouncementMutation.isPending;
     const metrics = overview?.metrics ?? null;
     const defaulters = overview?.defaulters ?? [];
     const [announcementTitle, setAnnouncementTitle] = useState("");
@@ -69,18 +68,17 @@ export default function DashboardPage() {
     const [recentPaymentsPage, setRecentPaymentsPage] = useState(1);
     const [defaultersPage, setDefaultersPage] = useState(1);
 
-    useEffect(() => {
-        void dispatch(fetchOverview());
-    }, [dispatch]);
-
     const formatCurrency = (v: number) => `₹${v.toLocaleString("en-IN")}`;
 
     useEffect(() => {
-        setTodayFollowUpsPage(1);
-        setOverdueFollowUpsPage(1);
-        setRecentLeadsPage(1);
-        setRecentPaymentsPage(1);
-        setDefaultersPage(1);
+        const id = setTimeout(() => {
+            setTodayFollowUpsPage(1);
+            setOverdueFollowUpsPage(1);
+            setRecentLeadsPage(1);
+            setRecentPaymentsPage(1);
+            setDefaultersPage(1);
+        }, 0);
+        return () => clearTimeout(id);
     }, [metrics, defaulters.length]);
 
     const todayFollowUps = metrics?.followUpOverview?.todaysFollowUps ?? [];
@@ -131,12 +129,12 @@ export default function DashboardPage() {
         }
 
         try {
-            await dispatch(postAnnouncement({ title: announcementTitle, body: announcementBody })).unwrap();
+            await postAnnouncementMutation.mutateAsync({ title: announcementTitle, body: announcementBody });
             setAnnouncementTitle("");
             setAnnouncementBody("");
             toast.success("Announcement posted");
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Failed to post announcement");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Failed to post announcement");
         }
     };
 

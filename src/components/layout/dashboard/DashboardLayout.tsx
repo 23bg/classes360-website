@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import ROUTES from "@/constants/routes";
-import api from "@/lib/axios";
+import { api } from "@/lib/axios";
 import { API } from "@/constants/api";
 import { Badge } from "@/components/ui/badge";
 import {

@@ -1,9 +1,7 @@
-import { redirect } from "next/navigation";
-import { readStudentSessionFromCookie } from "@/lib/auth/student-auth";
 import type { Metadata } from "next";
 import StudentPortalHeader from "@/components/student/StudentPortalHeader";
 import StudentPortalFooter from "@/components/student/StudentPortalFooter";
-import { ReduxProvider } from "@/providers/ReduxProvider";
+import StudentPortalGuard from "@/components/auth/StudentPortalGuard";
 
 export const metadata: Metadata = {
     robots: {
@@ -12,19 +10,14 @@ export const metadata: Metadata = {
     },
 };
 
-export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-    const session = await readStudentSessionFromCookie();
-    if (!session) {
-        redirect("/student-login");
-    }
-
+export default function StudentLayout({ children }: { children: React.ReactNode }) {
     return (
-        <ReduxProvider>
+        <StudentPortalGuard>
             <div className="min-h-screen bg-muted/20">
                 <StudentPortalHeader />
                 <main className="mx-auto max-w-6xl p-4 md:p-6">{children}</main>
                 <StudentPortalFooter />
             </div>
-        </ReduxProvider>
+        </StudentPortalGuard>
     );
 }

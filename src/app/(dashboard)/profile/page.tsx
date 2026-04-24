@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchInstituteProfile, saveInstituteProfile } from "@/features/dashboard/dashboardSlice";
+import { useInstituteProfile } from "@/features/dashboard/hooks/queries/useDashboardData";
+import { useSaveInstituteProfile } from "@/features/dashboard/hooks/mutations/useDashboardMutations";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { isImageFile, validateFile } from "@/lib/storage/utils";
 
@@ -79,19 +79,13 @@ const instituteProfileSchema = z.object({
 type ProfileFormValues = z.infer<typeof instituteProfileSchema>;
 
 export default function DashboardProfilePage() {
-    const dispatch = useAppDispatch();
+    const { data: profile, isLoading: loading } = useInstituteProfile();
+    const saveInstituteProfileMutation = useSaveInstituteProfile();
     const defaultValues: ProfileFormValues = {
         name: "", slug: "", description: "", phone: "", whatsapp: "",
         addressLine1: "", addressLine2: "", city: "", state: "", region: "", postalCode: "", country: "India", countryCode: "", timings: "", logo: "", heroImage: "", googleMapLink: "",
         website: "", instagram: "", facebook: "", youtube: "", linkedin: "",
     };
-
-    const profile = useAppSelector((state) => state.dashboard.profile.data);
-    const loading = useAppSelector((state) => state.dashboard.profile.loading);
-
-    useEffect(() => {
-        void dispatch(fetchInstituteProfile());
-    }, [dispatch]);
 
     const {
         control,
@@ -143,10 +137,10 @@ export default function DashboardProfilePage() {
 
     const save = async (form: ProfileFormValues) => {
         try {
-            await dispatch(saveInstituteProfile(form)).unwrap();
+            await saveInstituteProfileMutation.mutateAsync(form);
             toast.success("Profile updated successfully");
         } catch (error: any) {
-            toast.error(error?.data?.error?.message ?? "Network error. Please try again.");
+            toast.error(error?.message ?? error?.data?.error?.message ?? "Network error. Please try again.");
         }
     };
 

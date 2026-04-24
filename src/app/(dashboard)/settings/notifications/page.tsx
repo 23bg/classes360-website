@@ -3,9 +3,8 @@
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchNotificationSettings, updateNotificationSetting } from "@/features/dashboard/dashboardSlice";
+import { useNotificationSettings } from "@/features/dashboard/hooks/queries/useDashboardData";
+import { useUpdateNotificationSetting } from "@/features/dashboard/hooks/mutations/useDashboardMutations";
 
 type NotificationPreferences = {
     newEnquiryAlert: boolean;
@@ -24,17 +23,12 @@ const DEFAULT_PREFS: NotificationPreferences = {
 };
 
 export default function NotificationSettingsPage() {
-    const dispatch = useAppDispatch();
-    const prefs = useAppSelector((state) => state.dashboard.notifications.data);
-    const loading = useAppSelector((state) => state.dashboard.notifications.loading);
-
-    useEffect(() => {
-        void dispatch(fetchNotificationSettings());
-    }, [dispatch]);
+    const { data: prefs, isLoading: loading } = useNotificationSettings();
+    const updateNotificationMutation = useUpdateNotificationSetting();
 
     const update = async (key: keyof NotificationPreferences, value: boolean) => {
         try {
-            await dispatch(updateNotificationSetting({ key, value })).unwrap();
+            await updateNotificationMutation.mutateAsync({ key, value });
             toast.success("Notification settings updated", { description: "Your preferences have been saved." });
         } catch {
             toast.error("Failed to update notification settings");

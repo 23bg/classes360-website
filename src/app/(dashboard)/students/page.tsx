@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Loader2, Plus, Upload, CheckCircle2, AlertCircle, Eye, MoreHorizontal } from "lucide-react";
+import { Loader2, Plus, Upload, CheckCircle2, AlertCircle, MoreHorizontal } from "lucide-react";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
@@ -98,7 +98,8 @@ export default function StudentsPage() {
     useEffect(() => {
         const query = searchParams.get("query") ?? "";
         if (query && !searchQuery) {
-            setSearchQuery(query);
+            const id = setTimeout(() => setSearchQuery(query), 0);
+            return () => clearTimeout(id);
         }
     }, [searchParams, searchQuery]);
 
@@ -124,7 +125,8 @@ export default function StudentsPage() {
     }, [students, searchQuery, courseMap, batchMap]);
 
     useEffect(() => {
-        setPage(1);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
     }, [searchQuery, students.length]);
 
     const paginatedStudents = useMemo(
@@ -150,7 +152,8 @@ export default function StudentsPage() {
 
     useEffect(() => {
         if (searchParams.get("action") === "add") {
-            openCreate();
+            const id = setTimeout(() => openCreate(), 0);
+            return () => clearTimeout(id);
         }
     }, [searchParams]);
 

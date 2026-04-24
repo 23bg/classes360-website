@@ -46,6 +46,10 @@
   "exclude": [
     "node_modules",
     ".next",
-    "dist"
+    "dist",
+    // Exclude generated artifacts from TypeScript checking
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "src/**/*.js.map"
   ]
 }

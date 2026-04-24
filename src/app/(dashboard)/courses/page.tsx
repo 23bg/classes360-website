@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Eye, Loader2, MoreHorizontal, Plus } from "lucide-react";
+import {  Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { TablePaginationControls } from "@/components/ui/table-pagination-controls";
 import ListWidget from "@/components/custom/ListWidget";
 import TableWidget, { Column } from "@/components/custom/TableWidget";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { deleteCourse as deleteCourseThunk, fetchCourses, saveCourse as saveCourseThunk } from "@/features/dashboard/dashboardSlice";
+import { useCourses } from "@/features/dashboard/hooks/queries/useDashboardData";
+import { useDeleteCourse, useSaveCourse } from "@/features/dashboard/hooks/mutations/useDashboardMutations";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { isImageFile, validateFile } from "@/lib/storage/utils";
 
@@ -34,11 +34,11 @@ const emptyForm: CourseForm = { name: "", banner: "", duration: "", defaultFees:
 const PAGE_SIZE = 10;
 
 export default function CoursesPage() {
-    const dispatch = useAppDispatch();
+    const { data: courses = [], isLoading: loading } = useCourses();
+    const saveCourseMutation = useSaveCourse();
+    const deleteCourseMutation = useDeleteCourse();
     const searchParams = useSearchParams();
-    const courses = useAppSelector((state) => state.dashboard.courses.data);
-    const loading = useAppSelector((state) => state.dashboard.courses.loading);
-    const saving = useAppSelector((state) => state.dashboard.courses.mutation.loading);
+    const saving = saveCourseMutation.isPending || deleteCourseMutation.isPending;
     const [dialogOpen, setDialogOpen] = useState(false);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,18 +49,16 @@ export default function CoursesPage() {
     const { uploadFile, isLoading: uploadingBanner } = useFileUpload();
 
     useEffect(() => {
-        void dispatch(fetchCourses());
-    }, [dispatch]);
-
-    useEffect(() => {
         const query = searchParams.get("query") ?? "";
         if (query && !searchQuery) {
-            setSearchQuery(query);
+            const id = setTimeout(() => setSearchQuery(query), 0);
+            return () => clearTimeout(id);
         }
     }, [searchParams, searchQuery]);
 
     useEffect(() => {
-        setPage(1);
+        const id = setTimeout(() => setPage(1), 0);
+        return () => clearTimeout(id);
     }, [searchQuery, courses.length]);
 
     const openCreate = () => {
@@ -94,12 +92,11 @@ export default function CoursesPage() {
             if (form.defaultFees) body.defaultFees = parseFloat(form.defaultFees);
             if (form.description) body.description = form.description;
 
-            await dispatch(saveCourseThunk({ editingId, body })).unwrap();
+            await saveCourseMutation.mutateAsync({ editingId, body });
             toast.success(editingId ? "Course updated" : "Course added");
             setDialogOpen(false);
-            await dispatch(fetchCourses()).unwrap();
         } catch (error: any) {
-            toast.error(error?.response?.data?.error?.message ?? "Network error");
+            toast.error(error?.message ?? error?.response?.data?.error?.message ?? "Network error");
         }
     };
 
@@ -128,11 +125,10 @@ export default function CoursesPage() {
 
     const deleteCourse = async (id: string) => {
         try {
-            await dispatch(deleteCourseThunk(id)).unwrap();
+            await deleteCourseMutation.mutateAsync(id);
             toast.success("Course deleted");
-            await dispatch(fetchCourses()).unwrap();
         } catch (error: any) {
-            toast.error(error?.response?.data?.error?.message ?? "Network error");
+            toast.error(error?.message ?? error?.response?.data?.error?.message ?? "Network error");
         }
     };
 

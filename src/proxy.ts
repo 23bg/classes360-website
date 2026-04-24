@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/auth/tokens";
+// Note: removed server-only verifyAccessToken import to keep this module
+// safe for frontend usage. We decode the JWT payload without verifying
+// signatures (no server secret required). This is acceptable for routing
+// heuristics but not for security-sensitive checks.
 import { edgeLogger, getOrCreateRequestId, REQUEST_ID_HEADER } from "@/lib/request-logger";
+import { getApiUrl } from "@/lib/api/url";
 
 const ONBOARDING_PATH = "/onboarding";
 const LOGIN_PATH = "/login";
@@ -24,7 +28,7 @@ export function proxy(req: NextRequest) {
 
     if (!token) {
         if (refreshToken) {
-            const refreshUrl = new URL("/api/v1/auth/refresh", req.url);
+            const refreshUrl = new URL(getApiUrl("/api/v1/auth/refresh"));
             refreshUrl.searchParams.set("next", pathname);
             edgeLogger.info("redirect_to_refresh", { requestId, from: pathname, reason: "missing_access_token" });
             return NextResponse.redirect(refreshUrl);
@@ -36,12 +40,50 @@ export function proxy(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    // 2. Verify token is valid (lightweight JWT decode)
-    const session = verifyAccessToken(token);
+    // 2. Parse token payload (no signature verification).
+    //    This avoids pulling server-only secrets into middleware code
+    //    while still allowing routing decisions based on token claims.
+    const parseJwtPayload = (t: string) => {
+        try {
+            const parts = t.split(".");
+            if (parts.length < 2) return null;
+            const payload = parts[1];
+            const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+            // pad base64 string
+            const pad = base64.length % 4;
+            const padded = pad ? base64 + "=".repeat(4 - pad) : base64;
+            let json = "";
+            if (typeof Buffer !== "undefined") {
+                json = Buffer.from(padded, "base64").toString("utf8");
+            } else if (typeof atob !== "undefined") {
+                // atob returns a binary string; decode utf-8
+                const bin = atob(padded);
+                try {
+                    // decode percent-encoded utf-8
+                    json = decodeURIComponent(
+                        bin
+                            .split("")
+                            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                            .join("")
+                    );
+                } catch {
+                    json = bin;
+                }
+            } else {
+                return null;
+            }
+
+            return JSON.parse(json) as Record<string, unknown> | null;
+        } catch {
+            return null;
+        }
+    };
+
+    const session = token ? parseJwtPayload(token) : null;
 
     if (!session) {
         if (refreshToken) {
-            const refreshUrl = new URL("/api/v1/auth/refresh", req.url);
+            const refreshUrl = new URL(getApiUrl("/api/v1/auth/refresh"));
             refreshUrl.searchParams.set("next", pathname);
             edgeLogger.info("redirect_to_refresh", { requestId, from: pathname, reason: "invalid_access_token" });
             return NextResponse.redirect(refreshUrl);

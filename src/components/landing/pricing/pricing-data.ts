@@ -58,7 +58,7 @@ export const featureGroups: FeatureGroupDefinition[] = [
         id: "communication",
         title: "Communication",
         features: [
-            { id: "whatsAppAlerts", label: "WhatsApp alerts" },
+            { id: "whatsAppAlerts", label: "Alerts included" },
             {
                 id: "whatsAppBusinessNumberIntegration",
                 label: "WhatsApp Business number integration",
@@ -204,5 +204,8 @@ export const planFeatureMatrix: Record<PlanType, Record<FeatureId, PlanFeatureAv
 
 export const formatPlanPrice = (planType: PlanType, yearlyBilling: boolean) => {
     const amount = yearlyBilling ? PLAN_CONFIG[planType].priceYearly : PLAN_CONFIG[planType].priceMonthly;
+    if (amount === null) {
+        return "Custom";
+    }
     return amount.toLocaleString("en-IN");
 };

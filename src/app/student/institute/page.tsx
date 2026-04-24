@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
-import { useAppDispatch, useAppSelector } from "@/hooks/reduxHooks";
-import { fetchStudentPortal } from "@/features/studentPortal/studentPortalSlice";
+import { useStudentPortalData } from "@/features/studentPortal/useStudentPortal";
 
 type Teacher = {
     photo?: string | null;
@@ -40,17 +39,13 @@ type StudentInstitutePortalData = {
 };
 
 export default function StudentInstitutePage() {
-    const dispatch = useAppDispatch();
-    const data = useAppSelector((state) => state.studentPortal.data) as StudentInstitutePortalData | null;
+    const { data } = useStudentPortalData();
+    const typedData = (data as StudentInstitutePortalData | undefined) ?? null;
 
-    useEffect(() => {
-        void dispatch(fetchStudentPortal());
-    }, [dispatch]);
-
-    const institute = data?.student?.institute;
+    const institute = typedData?.student?.institute;
     const teachers = useMemo(() => {
-        return (data?.teachers ?? institute?.teachers ?? []) as Teacher[];
-    }, [data?.teachers, institute?.teachers]);
+        return (typedData?.teachers ?? institute?.teachers ?? []) as Teacher[];
+    }, [typedData?.teachers, institute?.teachers]);
 
     const services = institute?.services ?? [
         "Doubt Solving",
